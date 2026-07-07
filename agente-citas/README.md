@@ -14,7 +14,7 @@ Cualquier otra petición la rechaza amablemente.
 ## Stack
 
 - **Node.js + Express** — webhook de Meta WhatsApp Cloud API
-- **claude-fable-5 vía OpenRouter** (`agent/llm.js`, API compatible con OpenAI — no el SDK de Anthropic directo)
+- **Claude (claude-sonnet-4.5) vía OpenRouter** (`agent/llm.js`, API compatible con OpenAI — no el SDK de Anthropic directo)
 - **Supabase** — historial, catálogo, horarios y citas (`database/schema.sql`)
 
 ## Estructura

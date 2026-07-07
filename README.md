@@ -54,7 +54,8 @@ Este sí necesita `OPENROUTER_API_KEY` real (llama al modelo de verdad, no hay m
 | Variable | agente-citas | agente-retail | Notas |
 |---|---|---|---|
 | `OPENROUTER_API_KEY` | ✅ configurada | ✅ configurada (misma key) | Compartir la key entre ambos bots está bien — el conflicto es solo con el token de Telegram. Necesaria para `npm run chat`, `npm run telegram` (real) y `npm start` con tráfico real; **no** para `telegram:mock`. |
-| `OPENROUTER_MODEL` | `anthropic/claude-fable-5` | `anthropic/claude-fable-5` | Cambiar sin tocar código si hace falta otro modelo de OpenRouter. |
+| `OPENROUTER_MODEL` | `anthropic/claude-sonnet-4.5` | `anthropic/claude-sonnet-4.5` | Cambiar sin tocar código si hace falta otro modelo de OpenRouter. |
+| `MOCK` | `false` | `false` | `MOCK=true` fuerza respuestas simuladas en `telegram/bot.js` y `npm test` sin llamar nunca a OpenRouter, aunque haya `OPENROUTER_API_KEY` configurada. |
 | `TELEGRAM_BOT_TOKEN` | ✅ configurado (bot principal) | ⬜ **vacío — falta crear un segundo bot** | Dos bots no pueden compartir token (conflicto 409 de polling). Crear en @BotFather (`/newbot`) y pegar en `agente-retail/.env`. |
 | `SUPABASE_URL` / `SUPABASE_KEY` | ⬜ vacías | ⬜ vacías | Sin ellas, cada agente usa una base **en memoria** con datos demo (se resetea al reiniciar). Para producción: crear proyecto Supabase, correr `database/schema.sql`, y usar la clave **service_role** (la `anon` da *permission denied* con RLS). |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_ID` / `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` | ⬜ vacías | ⬜ vacías | Sin ellas, el webhook corre en modo demo (mensajes salientes por consola). Para producción: app en Meta for Developers + producto WhatsApp Cloud API. |
@@ -65,7 +66,7 @@ Este sí necesita `OPENROUTER_API_KEY` real (llama al modelo de verdad, no hay m
 2. **Supabase** en ambos: crear proyecto, correr `database/schema.sql`, pegar `SUPABASE_URL` + `SUPABASE_KEY` (service_role) en cada `.env`. Sin esto, cualquier reinicio del proceso borra citas/pedidos.
 3. **WhatsApp Cloud API** en ambos (si el canal final es WhatsApp y no Telegram): app en Meta for Developers, desplegar el servidor en un dominio público (Railway u otro), configurar el webhook con `WHATSAPP_VERIFY_TOKEN`.
 4. **Confirmar que `OPENROUTER_API_KEY` tiene crédito activo** antes de tráfico real — en `MOCK=true`/`telegram:mock` nunca se usa, así que no se ha verificado en este proceso.
-5. `agente-citas/scripts/test-conversaciones.js` (`npm test` de ese proyecto) **llama siempre al modelo real** (no tiene modo mock) — no correrlo como parte de una verificación "gratis"; usa créditos de `OPENROUTER_API_KEY`. `agente-retail/scripts/test-chat.js` (`npm test` de retail) sí tiene modo mock automático cuando falta `OPENROUTER_API_KEY`.
+5. `npm test` en ambos proyectos corre `scripts/test-chat.js`, que cae a modo mock automáticamente si falta `OPENROUTER_API_KEY` (o si se fuerza con `MOCK=true`) — así que `npm test` nunca gasta créditos por accidente. Para probar contra el modelo real, asegúrate de tener `OPENROUTER_API_KEY` con crédito y `MOCK=false` (o sin definir).
 
 ## Estructura (igual en ambos proyectos)
 
@@ -79,5 +80,5 @@ agente-*/
 │   ├── llm.js              # Adaptador OpenRouter (formato Anthropic Messages ↔ OpenAI chat.completions)
 │   ├── prompts.js / tools.js / memory.js
 ├── database/                # supabase.js (CRUD + fallback en memoria) + schema.sql
-└── scripts/                 # chat-local.js, test-chat.js (o test-conversaciones.js)
+└── scripts/                 # chat-local.js, test-chat.js
 ```

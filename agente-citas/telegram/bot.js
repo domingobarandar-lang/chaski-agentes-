@@ -26,6 +26,18 @@ const MAX_CHARS_TELEGRAM = 4096;
 const SALUDO =
   '¡Hola! Soy tu asistente de reservas 😊 Puedo mostrarte el *catálogo de servicios* con sus precios, buscar *horas disponibles*, y *agendar* o *cancelar* una hora. ¿Qué te gustaría?';
 
+const AYUDA =
+  'Comandos disponibles:\n' +
+  '/start — Ver el mensaje de bienvenida\n' +
+  '/help — Ver esta ayuda\n\n' +
+  'También puedes escribirme directamente, por ejemplo:\n' +
+  '- "¿Qué servicios tienen?"\n' +
+  '- "Quiero agendar una hora para el martes"\n' +
+  '- "¿Tengo alguna hora agendada?"\n' +
+  '- "Cancela mi hora"';
+
+const SOLO_TEXTO = 'Solo puedo responder mensajes de texto 😊';
+
 // ─── Envío con límite de largo y fallback de formato ─────────────────────────
 
 function dividirMensaje(texto) {
@@ -83,11 +95,15 @@ function arrancarBotReal() {
     const texto = (msg.text || '').trim();
 
     if (!texto) {
-      await bot.sendMessage(chatId, 'Por ahora solo entiendo mensajes de texto 😊');
+      await bot.sendMessage(chatId, SOLO_TEXTO);
       return;
     }
     if (texto === '/start') {
       await enviarTelegram(bot, chatId, SALUDO);
+      return;
+    }
+    if (texto === '/help') {
+      await enviarTelegram(bot, chatId, AYUDA);
       return;
     }
 

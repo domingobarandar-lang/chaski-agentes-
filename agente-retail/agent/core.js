@@ -1,5 +1,5 @@
 // Loop principal del agente conversacional con tool use.
-// Modelo: Claude vía OpenRouter (anthropic/claude-fable-5 por defecto) usando
+// Modelo: Claude vía OpenRouter (anthropic/claude-sonnet-4.5 por defecto) usando
 // el adaptador de agent/llm.js — el formato interno sigue siendo el de
 // Anthropic Messages (tool_use / tool_result), lo traduce el adaptador.
 
@@ -24,7 +24,7 @@ function obtenerCliente() {
 
 // Configurable por entorno: si hay que cambiar de modelo, se cambia la
 // variable sin tocar código. Nombres de modelo según OpenRouter.
-const MODELO          = process.env.OPENROUTER_MODEL || 'anthropic/claude-fable-5';
+const MODELO          = process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4.5';
 const MAX_TOKENS      = 600;  // respuestas cortas: es WhatsApp
 const MAX_RONDAS_TOOL = 6;    // límite de rondas de tool use (evita bucles)
 

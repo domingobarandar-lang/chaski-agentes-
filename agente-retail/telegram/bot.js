@@ -26,6 +26,18 @@ const MAX_CHARS_TELEGRAM = 4096;
 const SALUDO =
   '¡Hola! Soy el asistente de la tienda 😊 Puedo mostrarte *productos y precios*, revisar *stock*, y tomar, consultar o cancelar tu *pedido*. ¿Qué necesitas?';
 
+const AYUDA =
+  'Comandos disponibles:\n' +
+  '/start — Ver el mensaje de bienvenida\n' +
+  '/help — Ver esta ayuda\n\n' +
+  'También puedes escribirme directamente, por ejemplo:\n' +
+  '- "¿Qué tienen disponible?"\n' +
+  '- "¿Tienen salmón? ¿A cuánto el kilo?"\n' +
+  '- "Quiero 2 kilos de salmón, soy Pedro"\n' +
+  '- "¿Cómo va mi pedido?"';
+
+const SOLO_TEXTO = 'Solo puedo responder mensajes de texto 😊';
+
 // ─── Envío con límite de largo y fallback de formato ─────────────────────────
 
 function dividirMensaje(texto) {
@@ -83,11 +95,15 @@ function arrancarBotReal() {
     const texto = (msg.text || '').trim();
 
     if (!texto) {
-      await bot.sendMessage(chatId, 'Por ahora solo entiendo mensajes de texto 😊');
+      await bot.sendMessage(chatId, SOLO_TEXTO);
       return;
     }
     if (texto === '/start') {
       await enviarTelegram(bot, chatId, SALUDO);
+      return;
+    }
+    if (texto === '/help') {
+      await enviarTelegram(bot, chatId, AYUDA);
       return;
     }
 

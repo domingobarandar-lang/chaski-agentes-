@@ -1,21 +1,24 @@
 // Simulador de conversaciones + suite de evaluación del agente de citas.
 // Corre SIN WhatsApp y SIN Supabase (usa la base en memoria). Dos modos:
 //
-//   - Con OPENROUTER_API_KEY en .env: conversa con el modelo REAL (claude-fable-5).
-//     Los guiones de mock se ignoran; se evalúa la respuesta y el estado de la DB.
-//   - Sin API key: inyecta un MOCK del cliente que sigue un guión por
-//     escenario (tool use incluido). Sirve para evaluar de forma determinista
-//     el flujo, las herramientas y las validaciones — sin gastar tokens.
+//   - Con OPENROUTER_API_KEY en .env (y MOCK != 'true'): conversa con el
+//     modelo REAL vía OpenRouter. Los guiones de mock se ignoran; se evalúa
+//     la respuesta y el estado de la DB.
+//   - Sin API key, o con MOCK=true: inyecta un MOCK del cliente que sigue un
+//     guión por escenario (tool use incluido). Sirve para evaluar de forma
+//     determinista el flujo, las herramientas y las validaciones — sin gastar
+//     tokens ni necesitar credenciales.
 //
 // El mock respeta TOOL_DEFINITIONS: si el guión pide una herramienta que el
 // agente NO tiene definida, responde como lo haría el modelo real ("eso no lo
 // tengo") — así los tests detectan capacidades faltantes.
 //
 // Uso: npm test   (o node scripts/test-chat.js)
+// Forzar mock aunque haya API key: MOCK=true npm test
 
 require('dotenv').config();
 
-const MODO_MOCK = !process.env.OPENROUTER_API_KEY;
+const MODO_MOCK = process.env.MOCK === 'true' || !process.env.OPENROUTER_API_KEY;
 
 // ─── Mock del cliente LLM (se inyecta ANTES de cargar el agente) ─────────────
 
@@ -486,7 +489,7 @@ async function main() {
   mockState.fechas = fechas;
 
   console.log('═'.repeat(72));
-  console.log(`Suite de conversaciones — Agente de citas  ·  modo: ${MODO_MOCK ? 'MOCK (sin API key)' : 'MODELO REAL (claude-fable-5)'}`);
+  console.log(`Suite de conversaciones — Agente de citas  ·  modo: ${MODO_MOCK ? 'MOCK (sin API key o MOCK=true)' : 'MODELO REAL (OpenRouter)'}`);
   console.log(`Hoy (Chile): ${fechas.hoy}  ·  escenarios: ${ESCENARIOS.length}`);
   console.log('═'.repeat(72));
 
