@@ -1,6 +1,6 @@
 // Bot de Telegram del agente de retail — puente Telegram ↔ agent/core.js.
 //
-// Dos modos, según TELEGRAM_BOT_TOKEN en .env:
+// Dos modos, según TELEGRAM_TOKEN_RETAIL en .env:
 //  - Con token : bot real en modo POLLING (sin webhook — ideal para demo local,
 //                no necesita dominio público). Cada chat de Telegram es una
 //                conversación independiente del agente (misma memoria que WhatsApp).
@@ -19,7 +19,7 @@ require('dotenv').config();
 const MODO_MOCK =
   process.env.MOCK === 'true' ||
   process.argv.includes('--mock') ||
-  !process.env.TELEGRAM_BOT_TOKEN;
+  !process.env.TELEGRAM_TOKEN_RETAIL;
 
 const MAX_CHARS_TELEGRAM = 4096;
 
@@ -80,11 +80,11 @@ function arrancarBotReal() {
     process.exit(1);
   }
 
-  const TelegramBot = require('node-telegram-bot-api');
+  const { TelegramBot } = require('node-telegram-bot-api');
   const { processMessage, MENSAJE_ERROR } = require('../agent/core');
   const { usandoMemoria } = require('../database/supabase');
 
-  const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+  const bot = new TelegramBot(process.env.TELEGRAM_TOKEN_RETAIL, { polling: true });
 
   bot.on('polling_error', (error) => {
     console.error('[Telegram] Error de polling:', error.message);
@@ -300,7 +300,7 @@ async function correrDemoMock(conversaciones, mockState, processMessage) {
   console.log(fallas === 0
     ? `RESUMEN: ${conversaciones.length}/${conversaciones.length} conversaciones OK — el puente Telegram ↔ agente funciona.`
     : `RESUMEN: ${conversaciones.length - fallas}/${conversaciones.length} conversaciones OK (${fallas} con fallas).`);
-  console.log('Para conectar Telegram real: pon TELEGRAM_BOT_TOKEN en .env y corre `npm run telegram` (ver README).');
+  console.log('Para conectar Telegram real: pon TELEGRAM_TOKEN_RETAIL en .env y corre `npm run telegram` (ver README).');
   console.log('═'.repeat(64));
   process.exitCode = fallas ? 1 : 0;
 }
