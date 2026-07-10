@@ -1,10 +1,14 @@
 // Capa de acceso a datos del agente de citas.
-// Con SUPABASE_URL + SUPABASE_KEY usa Supabase; sin ellas cae a una base EN
-// MEMORIA con datos demo (suficiente para probar con `npm run chat`).
+// Con SUPABASE_URL + SUPABASE_ANON_KEY usa Supabase; sin ellas cae a una base
+// EN MEMORIA con datos demo (suficiente para probar con `npm run chat`).
+//
+// Supabase es COMPARTIDO con agente-retail (mismo proyecto/URL/key — ver
+// schema-compartido.sql). La tabla `sesiones` está prefijada como
+// `citas_sesiones` para no chocar con la de agente-retail.
 
 const { createClient } = require('@supabase/supabase-js');
 
-const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_KEY;
+const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY;
 
 // ─── Implementación en memoria (modo demo) ───────────────────────────────────
 
@@ -82,7 +86,7 @@ const dbMemoria = {
 // ─── Implementación Supabase ─────────────────────────────────────────────────
 
 function crearDbSupabase() {
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
   return {
     supabase,
@@ -93,7 +97,7 @@ function crearDbSupabase() {
     sesiones: {
       async get(telefono) {
         const { data, error } = await supabase
-          .from('sesiones')
+          .from('citas_sesiones')
           .select('messages')
           .eq('telefono', telefono)
           .single();
@@ -105,7 +109,7 @@ function crearDbSupabase() {
       },
       async upsert(telefono, messages) {
         const { error } = await supabase
-          .from('sesiones')
+          .from('citas_sesiones')
           .upsert({ telefono, messages, updated_at: new Date().toISOString() }, { onConflict: 'telefono' });
         if (error) throw new Error(`[DB] sesiones.upsert: ${error.message}`);
       },

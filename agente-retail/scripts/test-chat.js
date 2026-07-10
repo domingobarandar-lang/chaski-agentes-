@@ -3,11 +3,11 @@
 // Uso: npm test   (o: node scripts/test-chat.js)
 // Forzar mock aunque haya API key: MOCK=true npm test
 //
-// Dos modos, según haya o no OPENROUTER_API_KEY en el entorno / .env (y MOCK):
-//  - Modo API : las conversaciones pasan por Claude de verdad (vía OpenRouter).
+// Dos modos, según haya o no GEMINI_API_KEY en el entorno / .env (y MOCK):
+//  - Modo API : las conversaciones pasan por Gemini de verdad (Google AI Studio).
 //  - Modo MOCK: se inyecta un doble de pruebas del cliente que ejecuta los tool
-//    calls que Claude haría en cada escenario. Evalúa la capa de herramientas,
-//    el loop de core.js y la memoria — sin llamar a la API.
+//    calls que el modelo haría en cada escenario. Evalúa la capa de
+//    herramientas, el loop de core.js y la memoria — sin llamar a la API.
 //
 // En ambos modos la base de datos es la EN MEMORIA (no configurar SUPABASE_*
 // al correr los tests). Cada escenario parte con la base limpia.
@@ -16,7 +16,7 @@ require('dotenv').config();
 
 const path = require('path');
 
-const MODO = (process.env.MOCK === 'true' || !process.env.OPENROUTER_API_KEY) ? 'mock' : 'api';
+const MODO = (process.env.MOCK === 'true' || !process.env.GEMINI_API_KEY) ? 'mock' : 'api';
 
 if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
   console.error('Los tests usan la base EN MEMORIA: quita SUPABASE_URL/SUPABASE_KEY del entorno antes de correrlos.');
@@ -50,7 +50,7 @@ function mockCreate() {
 }
 
 // Cliente que se inyecta en core.js vía _setClienteParaTests (modo mock).
-// NOTA: MODO se decide arriba por OPENROUTER_API_KEY; este cliente doble se
+// NOTA: MODO se decide arriba por GEMINI_API_KEY; este cliente doble se
 // usa solo si MODO === 'mock' (ver cargarAgenteFresco).
 const clienteMock = {
   messages: { create: async (p) => mockCreate(p) },
@@ -765,7 +765,7 @@ function chequeosEstaticos(tools) {
 
 async function main() {
   console.log('═'.repeat(70));
-  console.log(`Simulador de conversaciones — modo ${MODO.toUpperCase()}${MODO === 'mock' ? ' (sin OPENROUTER_API_KEY o MOCK=true: tool calls guionizados)' : ''}`);
+  console.log(`Simulador de conversaciones — modo ${MODO.toUpperCase()}${MODO === 'mock' ? ' (sin GEMINI_API_KEY o MOCK=true: tool calls guionizados)' : ''}`);
   console.log('═'.repeat(70));
 
   let fallas = 0;

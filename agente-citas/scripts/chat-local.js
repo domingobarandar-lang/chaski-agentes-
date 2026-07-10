@@ -1,5 +1,5 @@
 // Simulador de conversación por consola — prueba el agente SIN WhatsApp ni Meta.
-// Uso: npm run chat   (requiere solo OPENROUTER_API_KEY en .env)
+// Uso: npm run chat   (requiere solo GEMINI_API_KEY en .env)
 
 require('dotenv').config();
 const readline = require('readline');
