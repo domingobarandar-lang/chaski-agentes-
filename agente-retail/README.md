@@ -14,7 +14,7 @@ Cualquier otra petición la rechaza amablemente.
 ## Stack
 
 - **Node.js + Express** — webhook de Meta WhatsApp Cloud API
-- **Gemini (gemini-2.0-flash) vía Google AI Studio** (`agent/llm.js`, adaptador propio — expone el formato de mensajes de Anthropic hacia el resto del agente)
+- **Claude (claude-haiku-4-5-20251001) vía la API de Anthropic** (`agent/llm.js`, cliente sobre el SDK oficial `@anthropic-ai/sdk`)
 - **Supabase** — historial, productos, pedidos (`database/schema.sql`)
 
 ## Estructura
@@ -43,7 +43,7 @@ agente-retail/
 ```bash
 cd agente-retail
 npm install
-copy .env.example .env      # y pegar tu GEMINI_API_KEY
+copy .env.example .env      # y pegar tu ANTHROPIC_API_KEY
 npm run chat
 ```
 
@@ -81,10 +81,10 @@ Telegram no exige cuenta de empresa ni verificación de Meta: el bot se crea en 
 
 Notas:
 
-- Requiere `GEMINI_API_KEY` en `.env` (el agente es el mismo que en WhatsApp; solo cambia el canal).
+- Requiere `ANTHROPIC_API_KEY` en `.env` (el agente es el mismo que en WhatsApp; solo cambia el canal).
 - **No reutilizar el `TELEGRAM_BOT_TOKEN` de `agente-citas`** — cada bot necesita el suyo (crear uno nuevo en @BotFather); dos bots con el mismo token chocan (409) en polling.
 - El formato `*negrita*` que ya usa el agente funciona igual en Telegram.
-- **Modo mock** (sin token de Telegram y sin API de Gemini): `npm run telegram:mock` simula 3 conversaciones de demostración por consola — útil para verificar el flujo completo sin ninguna credencial.
+- **Modo mock** (sin token de Telegram y sin API de Anthropic): `npm run telegram:mock` simula 3 conversaciones de demostración por consola — útil para verificar el flujo completo sin ninguna credencial.
 
 ## Conectar WhatsApp (cuando toque, no ahora)
 

@@ -1,8 +1,8 @@
 // Simulador de conversaciones + suite de evaluación del agente de citas.
 // Corre SIN WhatsApp y SIN Supabase (usa la base en memoria). Dos modos:
 //
-//   - Con GEMINI_API_KEY en .env (y MOCK != 'true'): conversa con el
-//     modelo REAL vía Google AI Studio. Los guiones de mock se ignoran; se
+//   - Con ANTHROPIC_API_KEY en .env (y MOCK != 'true'): conversa con el
+//     modelo REAL vía la API de Anthropic. Los guiones de mock se ignoran; se
 //     evalúa la respuesta y el estado de la DB.
 //   - Sin API key, o con MOCK=true: inyecta un MOCK del cliente que sigue un
 //     guión por escenario (tool use incluido). Sirve para evaluar de forma
@@ -18,7 +18,7 @@
 
 require('dotenv').config();
 
-const MODO_MOCK = process.env.MOCK === 'true' || !process.env.GEMINI_API_KEY;
+const MODO_MOCK = process.env.MOCK === 'true' || !process.env.ANTHROPIC_API_KEY;
 
 // ─── Mock del cliente LLM (se inyecta ANTES de cargar el agente) ─────────────
 
@@ -489,7 +489,7 @@ async function main() {
   mockState.fechas = fechas;
 
   console.log('═'.repeat(72));
-  console.log(`Suite de conversaciones — Agente de citas  ·  modo: ${MODO_MOCK ? 'MOCK (sin API key o MOCK=true)' : 'MODELO REAL (Gemini)'}`);
+  console.log(`Suite de conversaciones — Agente de citas  ·  modo: ${MODO_MOCK ? 'MOCK (sin API key o MOCK=true)' : 'MODELO REAL (Claude)'}`);
   console.log(`Hoy (Chile): ${fechas.hoy}  ·  escenarios: ${ESCENARIOS.length}`);
   console.log('═'.repeat(72));
 

@@ -4,7 +4,7 @@
 //  - Con token : bot real en modo POLLING (sin webhook — ideal para demo local,
 //                no necesita dominio público). Cada chat de Telegram es una
 //                conversación independiente del agente (misma memoria que WhatsApp).
-//  - Sin token : modo MOCK. No toca Telegram NI la API de Gemini (inyecta el
+//  - Sin token : modo MOCK. No toca Telegram NI la API de Anthropic (inyecta el
 //                mismo doble de pruebas del SDK que usa la suite de tests) y
 //                simula 3 conversaciones de demostración por consola.
 //
@@ -74,8 +74,8 @@ const idConversacion = (chatId) => `tg${chatId}`;
 // ─── Modo real: polling contra la API de Telegram ────────────────────────────
 
 function arrancarBotReal() {
-  if (!process.env.GEMINI_API_KEY) {
-    console.error('[Telegram] Falta GEMINI_API_KEY en .env — el agente no puede responder.');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[Telegram] Falta ANTHROPIC_API_KEY en .env — el agente no puede responder.');
     console.error('[Telegram] Para probar sin API keys: npm run telegram:mock');
     process.exit(1);
   }
@@ -126,7 +126,7 @@ function arrancarBotReal() {
   console.log('─'.repeat(60));
 }
 
-// ─── Modo mock: sin Telegram y SIN API de Gemini ──────────────────────────────
+// ─── Modo mock: sin Telegram y SIN API de Anthropic ───────────────────────────
 // Inyecta un doble de pruebas del SDK vía core._setClienteParaTests (el mismo
 // mecanismo de scripts/test-chat.js): ninguna llamada sale a la red.
 
@@ -271,7 +271,7 @@ function arrancarModoMock() {
 
 async function correrDemoMock(conversaciones, mockState, processMessage) {
   console.log('═'.repeat(64));
-  console.log('Telegram — MODO MOCK (sin Telegram real, sin API de Gemini)');
+  console.log('Telegram — MODO MOCK (sin Telegram real, sin API de Anthropic)');
   console.log('Simulando conversaciones de demostración…');
   console.log('═'.repeat(64));
 

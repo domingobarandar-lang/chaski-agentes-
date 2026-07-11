@@ -1,14 +1,14 @@
 // Loop principal del agente conversacional con tool use.
-// Modelo: Gemini (gemini-2.0-flash por defecto) vía Google AI Studio, usando
-// el adaptador de agent/llm.js — el formato interno sigue siendo el de
-// Anthropic Messages (tool_use / tool_result), lo traduce el adaptador.
+// Modelo: Claude (claude-haiku-4-5-20251001 por defecto) vía la API de
+// Anthropic, usando el cliente de agent/llm.js — el formato interno ya es
+// el nativo de Anthropic Messages (tool_use / tool_result).
 
-const { crearClienteGemini } = require('./llm');
+const { crearClienteAnthropic } = require('./llm');
 const { buildSystemPrompt } = require('./prompts');
 const { TOOL_DEFINITIONS, ejecutarHerramienta } = require('./tools');
 const { cargarHistorial, persistirInteraccion } = require('./memory');
 
-// Cliente perezoso: sin GEMINI_API_KEY el constructor lanza error, y este
+// Cliente perezoso: sin ANTHROPIC_API_KEY el constructor lanza error, y este
 // módulo también se carga desde los simuladores locales (chat / tests /
 // telegram mock) que inyectan un cliente doble de pruebas.
 let cliente = null;
@@ -18,13 +18,13 @@ function _setClienteParaTests(c) { clienteOverride = c; }
 
 function obtenerCliente() {
   if (clienteOverride) return clienteOverride;
-  if (!cliente) cliente = crearClienteGemini();
+  if (!cliente) cliente = crearClienteAnthropic();
   return cliente;
 }
 
 // Configurable por entorno: si hay que cambiar de modelo, se cambia la
-// variable sin tocar código. Nombres de modelo según Google AI Studio.
-const MODELO          = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+// variable sin tocar código. Nombres de modelo según la API de Anthropic.
+const MODELO          = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
 const MAX_TOKENS      = 600;  // respuestas cortas: es mensajería, no un ensayo
 const MAX_RONDAS_TOOL = 6;    // límite de rondas de tool use (evita bucles)
 
