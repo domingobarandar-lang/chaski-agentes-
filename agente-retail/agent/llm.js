@@ -4,7 +4,7 @@
 // Anthropic Messages (system, tools con input_schema, bloques tool_use /
 // tool_result y respuesta { stop_reason, content }), así que este adaptador
 // es un wrapper delgado sobre el SDK oficial: no hay traducción de formato
-// de por medio (antes sí la había, para Gemini).
+// de por medio.
 
 const Anthropic = require('@anthropic-ai/sdk');
 
