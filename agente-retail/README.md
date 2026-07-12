@@ -1,8 +1,8 @@
 # Agente de Retail — WhatsApp (demo/MVP)
 
-Chatbot de WhatsApp **genérico** para comercios al por menor: productos secos, mariscos, pet shops, almacenes, etc. Basado en la estructura del contestador de Gesta, simplificado como producto de prueba.
+Chatbot de WhatsApp para comercios al por menor. En esta demo el bot atiende como **"Frutos Secos La Cosecha"**, una **empresa ficticia** que vende frutos secos y fruta deshidratada (maní, almendras, nueces, mix, pasas...), con catálogo, stock, despacho y datos de contacto inventados — pensada para mostrar el producto a clientes potenciales (el mismo agente sirve para almacenes, pet shops, pescaderías, etc. cambiando catálogo y prompt).
 
-**Alcance limitado por diseño** (no habla en nombre de ninguna empresa):
+**Alcance limitado por diseño:**
 
 1. Mostrar/buscar productos del catálogo
 2. Consultar stock y precios
@@ -29,7 +29,7 @@ agente-retail/
 │   └── bot.js             # Bot de Telegram (polling) — o modo mock sin token
 ├── agent/
 │   ├── core.js            # Loop agéntico: historial → Claude → tools → respuesta
-│   ├── prompts.js         # System prompt genérico (sin marca)
+│   ├── prompts.js         # System prompt de la tienda ficticia (datos demo)
 │   ├── tools.js           # buscar_productos / consultar_stock / crear_pedido / consultar_pedido
 │   └── memory.js          # Historial por teléfono (ventana de 30 mensajes)
 ├── database/
@@ -47,13 +47,14 @@ copy .env.example .env      # y pegar tu ANTHROPIC_API_KEY
 npm run chat
 ```
 
-Sin credenciales de Supabase el agente usa una base **en memoria** con 10 productos demo (abarrotes, mariscos y mascotas).
+Sin credenciales de Supabase el agente usa una base **en memoria** con los 10 productos demo de la tienda ficticia (frutos secos al kilo, mix, fruta deshidratada y mantequilla de maní).
 
 Ejemplos para probar:
 
 - "Hola, ¿qué venden?"
-- "¿Tienen salmón? ¿A cuánto el kilo?"
-- "Quiero 2 kilos de salmón y una malla de choritos"
+- "¿Tienen almendras? ¿A cuánto el kilo?"
+- "Quiero 2 kilos de almendras y una bolsa de mix"
+- "¿Hacen despacho? ¿Cuánto cuesta?"
 - "¿Cómo va mi pedido?"
 
 ## Conectar Supabase
@@ -61,7 +62,7 @@ Ejemplos para probar:
 1. Crear un proyecto en Supabase.
 2. Ejecutar `database/schema.sql` en el **SQL Editor** (crea tablas + productos demo).
 3. En `.env`: `SUPABASE_URL` y `SUPABASE_KEY` con la clave **service_role** (⚠️ la clave `anon` da *permission denied*).
-4. Cargar los productos reales del comercio en la tabla `productos`.
+4. Cargar los productos reales del comercio en la tabla `productos` (y ajustar el nombre/datos del negocio en `agent/prompts.js`).
 
 ## Conectar Telegram (gratis — ideal para demos)
 

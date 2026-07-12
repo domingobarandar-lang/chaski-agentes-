@@ -122,55 +122,55 @@ function nombresProductos(resultadoBusqueda) {
 
 const ESCENARIOS = [
   {
-    nombre: 'Búsqueda multi-palabra: "alimento para perros de 15kg"',
+    nombre: 'Búsqueda multi-palabra: "mix de frutos secos de 500g"',
     turnos: [{
-      user: '¿Tienen alimento para perros de 15kg?',
+      user: '¿Tienen mix de frutos secos de 500g?',
       mock: [
-        { tools: [{ name: 'buscar_productos', input: { consulta: 'alimento para perros' } }] },
-        { texto: 'Sí, tenemos Comida perro adulto (15 kg) a $34.990. ¿Te lo anoto? 🐶' },
+        { tools: [{ name: 'buscar_productos', input: { consulta: 'mix de frutos secos 500g' } }] },
+        { texto: 'Sí, tenemos Mix frutos secos (bolsa 500 g) a $6.990. ¿Te lo anoto? 😊' },
       ],
       evaluar: async ({ capturas }) => {
         const problemas = [];
         const busquedas = capturaDe(capturas, 'buscar_productos');
         const nombres = busquedas.flatMap(nombresProductos);
-        if (!nombres.some((n) => /comida perro adulto/i.test(n))) {
-          problemas.push(`buscar_productos("alimento para perros") NO encontró "Comida perro adulto (15 kg)". Resultados: ${JSON.stringify(nombres)}`);
+        if (!nombres.some((n) => /mix frutos secos/i.test(n))) {
+          problemas.push(`buscar_productos("mix de frutos secos 500g") NO encontró "Mix frutos secos (bolsa 500 g)". Resultados: ${JSON.stringify(nombres)}`);
         }
         return problemas;
       },
     }],
   },
   {
-    nombre: 'Búsqueda con conector y singular: "comida de gato"',
+    nombre: 'Búsqueda con conector y singular: "bolsas de pasas"',
     turnos: [{
-      user: '¿Tienen comida de gato?',
+      user: '¿Tienen bolsas de pasas?',
       mock: [
-        { tools: [{ name: 'buscar_productos', input: { consulta: 'comida de gato' } }] },
-        { texto: 'Sí: Comida gato (3 kg) a $12.990. 🐱' },
+        { tools: [{ name: 'buscar_productos', input: { consulta: 'bolsas de pasas' } }] },
+        { texto: 'Sí: Pasas rubias (bolsa 500 g) a $3.490. 😊' },
       ],
       evaluar: async ({ capturas }) => {
         const nombres = capturaDe(capturas, 'buscar_productos').flatMap(nombresProductos);
-        return nombres.some((n) => /comida gato/i.test(n))
+        return nombres.some((n) => /pasas rubias/i.test(n))
           ? []
-          : [`buscar_productos("comida de gato") NO encontró "Comida gato (3 kg)". Resultados: ${JSON.stringify(nombres)}`];
+          : [`buscar_productos("bolsas de pasas") NO encontró "Pasas rubias (bolsa 500 g)". Resultados: ${JSON.stringify(nombres)}`];
       },
     }],
   },
   {
-    nombre: 'Producto inexistente: "¿cuánto cuesta el kilo de lenguado?"',
+    nombre: 'Producto inexistente: "¿cuánto cuesta el kilo de pistachos?"',
     turnos: [{
-      user: '¿Cuánto cuesta el kilo de lenguado?',
+      user: '¿Cuánto cuesta el kilo de pistachos?',
       mock: [
-        { tools: [{ name: 'consultar_stock', input: { producto: 'lenguado' } }] },
-        { texto: 'No tenemos lenguado, pero en mariscos hay salmón, camarones y choritos. ¿Te sirve alguno? 🐟' },
+        { tools: [{ name: 'consultar_stock', input: { producto: 'pistachos' } }] },
+        { texto: 'Pistachos no manejamos por ahora, pero tenemos maní, almendras, nueces y castañas de cajú. ¿Te sirve alguno? 😊' },
       ],
       evaluar: async ({ capturas, respuesta, modo }) => {
         const problemas = [];
         const [stock] = capturaDe(capturas, 'consultar_stock');
-        if (stock?.encontrado !== false) problemas.push('consultar_stock("lenguado") debió responder encontrado:false.');
+        if (stock?.encontrado !== false) problemas.push('consultar_stock("pistachos") debió responder encontrado:false.');
         const tieneAyuda = stock && (stock.categorias_disponibles?.length || stock.sugerencias?.length);
         if (!tieneAyuda) problemas.push('consultar_stock sin resultados no entrega alternativas (categorías/sugerencias) para que el agente ofrezca otra cosa.');
-        if (modo === 'api' && /\$\s?\d/.test(respuesta) && /lenguado/i.test(respuesta)) {
+        if (modo === 'api' && /\$\s?\d/.test(respuesta) && /pistacho/i.test(respuesta)) {
           problemas.push(`Posible precio inventado para un producto inexistente: "${respuesta}"`);
         }
         return problemas;
@@ -178,18 +178,18 @@ const ESCENARIOS = [
     }],
   },
   {
-    nombre: 'Sin stock en catálogo: "¿tienen frutos secos?"',
+    nombre: 'Sin stock en catálogo: "¿tienen chocolates?"',
     turnos: [{
-      user: '¿Tienen stock de frutos secos?',
+      user: '¿Tienen stock de chocolates?',
       mock: [
-        { tools: [{ name: 'buscar_productos', input: { consulta: 'frutos secos' } }] },
-        { texto: 'Por ahora no tenemos frutos secos. Manejamos abarrotes, mariscos y mascotas. 😊' },
+        { tools: [{ name: 'buscar_productos', input: { consulta: 'chocolates' } }] },
+        { texto: 'Por ahora no tenemos chocolates. Manejamos frutos secos, mix y fruta deshidratada. 😊' },
       ],
       evaluar: async ({ capturas }) => {
         const problemas = [];
         const [busqueda] = capturaDe(capturas, 'buscar_productos');
         if (!busqueda || busqueda.resultados !== 0) {
-          problemas.push(`buscar_productos("frutos secos") debió dar 0 resultados (no hay falsos positivos). Obtuvo: ${JSON.stringify(nombresProductos(busqueda))}`);
+          problemas.push(`buscar_productos("chocolates") debió dar 0 resultados (no hay falsos positivos). Obtuvo: ${JSON.stringify(nombresProductos(busqueda))}`);
         }
         if (busqueda && !busqueda.categorias_disponibles?.length) {
           problemas.push('Búsqueda sin resultados no informa las categorías disponibles.');
@@ -199,34 +199,34 @@ const ESCENARIOS = [
     }],
   },
   {
-    nombre: 'Pedido feliz: 2 kg de salmón (consulta → confirmación → creación)',
+    nombre: 'Pedido feliz: 2 kg de almendras (consulta → confirmación → creación)',
     turnos: [
       {
-        user: 'Hola! Quiero pedir 2 kilos de salmón',
+        user: 'Hola! Quiero pedir 2 kilos de almendras',
         mock: [
-          { tools: [{ name: 'consultar_stock', input: { producto: 'salmón' } }] },
-          { texto: 'Tenemos Salmón fresco a $12.990 el kg (hay 15 kg). Serían $25.980. ¿A nombre de quién dejo el pedido? 😊' },
+          { tools: [{ name: 'consultar_stock', input: { producto: 'almendras' } }] },
+          { texto: 'Tenemos Almendras a $12.990 el kg (hay 15 kg). Serían $25.980. ¿A nombre de quién dejo el pedido? 😊' },
         ],
         evaluar: async ({ capturas }) => {
           const [stock] = capturaDe(capturas, 'consultar_stock');
-          return stock?.encontrado && /salm/i.test(stock.producto?.nombre ?? '')
+          return stock?.encontrado && /almendra/i.test(stock.producto?.nombre ?? '')
             ? []
-            : [`consultar_stock("salmón") no encontró el salmón: ${JSON.stringify(stock)}`];
+            : [`consultar_stock("almendras") no encontró las almendras: ${JSON.stringify(stock)}`];
         },
       },
       {
         user: 'A nombre de Carla Pérez. Confirmo!',
         mock: [
-          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Carla Pérez', items: [{ producto: 'salmón', cantidad: 2 }] } }] },
-          { texto: 'Listo Carla, pedido #1 por 2 kg de salmón, total $25.980. Te avisamos cuando esté listo. 😊' },
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Carla Pérez', items: [{ producto: 'almendras', cantidad: 2 }] } }] },
+          { texto: 'Listo Carla, pedido #1 por 2 kg de almendras, total $25.980. Te avisamos cuando esté listo. 😊' },
         ],
         evaluar: async ({ capturas, db, telefono }) => {
           const problemas = [];
           const [pedido] = capturaDe(capturas, 'crear_pedido');
           if (!pedido?.creado) problemas.push(`crear_pedido falló: ${JSON.stringify(pedido)}`);
           if (pedido?.creado && pedido.pedido.total !== 25980) problemas.push(`Total incorrecto: esperaba 25980, obtuvo ${pedido.pedido.total}`);
-          const salmon = await db.productos.buscarUno('Salmón fresco');
-          if (salmon && salmon.stock !== 13) problemas.push(`Stock no descontado correctamente: esperaba 13 kg, hay ${salmon.stock}`);
+          const almendras = await db.productos.buscarUno('Almendras');
+          if (almendras && almendras.stock !== 13) problemas.push(`Stock no descontado correctamente: esperaba 13 kg, hay ${almendras.stock}`);
           const guardado = await db.pedidos.ultimoPorTelefono(telefono);
           if (!guardado) problemas.push('El pedido no quedó asociado al teléfono del cliente.');
           return problemas;
@@ -235,13 +235,13 @@ const ESCENARIOS = [
     ],
   },
   {
-    nombre: 'Cantidad decimal: 1,5 kg de salmón (definición de la herramienta)',
+    nombre: 'Cantidad decimal: 1,5 kg de almendras (definición de la herramienta)',
     turnos: [
       {
-        user: 'Quiero 1,5 kg de salmón, soy Ana. Confirmo.',
+        user: 'Quiero 1,5 kg de almendras, soy Ana. Confirmo.',
         mock: [
-          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Ana', items: [{ producto: 'Salmón fresco (kg)', cantidad: 1.5 }] } }] },
-          { texto: 'Listo Ana: 1,5 kg de salmón, total $19.485. 😊' },
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Ana', items: [{ producto: 'Almendras (kg)', cantidad: 1.5 }] } }] },
+          { texto: 'Listo Ana: 1,5 kg de almendras, total $19.485. 😊' },
         ],
         evaluar: async ({ capturas, tools, modo }) => {
           const problemas = [];
@@ -270,12 +270,12 @@ const ESCENARIOS = [
     },
   },
   {
-    nombre: 'Decimal en producto por unidad debe rechazarse (2,5 sacos)',
+    nombre: 'Decimal en producto por unidad debe rechazarse (2,5 bolsas)',
     turnos: [{
-      user: 'Quiero 2,5 sacos de comida de perro, soy Raúl. Confirmo.',
+      user: 'Quiero 2,5 bolsas de mix de frutos secos, soy Raúl. Confirmo.',
       mock: [
-        { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Raúl', items: [{ producto: 'Comida perro adulto (15 kg)', cantidad: 2.5 }] } }] },
-        { texto: 'Los sacos se venden por unidad: ¿te anoto 2 o 3? 😊' },
+        { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Raúl', items: [{ producto: 'Mix frutos secos (bolsa 500 g)', cantidad: 2.5 }] } }] },
+        { texto: 'Las bolsas se venden por unidad: ¿te anoto 2 o 3? 😊' },
       ],
       evaluar: async ({ capturas, db, telefono, modo }) => {
         const problemas = [];
@@ -292,12 +292,12 @@ const ESCENARIOS = [
     }],
   },
   {
-    nombre: 'Stock insuficiente: 50 kg de salmón (hay 15)',
+    nombre: 'Stock insuficiente: 50 kg de almendras (hay 15)',
     turnos: [{
-      user: 'Necesito 50 kg de salmón para un evento, soy Pedro. Dale no más.',
+      user: 'Necesito 50 kg de almendras para un evento, soy Pedro. Dale no más.',
       mock: [
-        { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Pedro', items: [{ producto: 'salmón', cantidad: 50 }] } }] },
-        { texto: 'Uy, solo nos quedan 15 kg de salmón. ¿Te sirven? 😊' },
+        { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Pedro', items: [{ producto: 'almendras', cantidad: 50 }] } }] },
+        { texto: 'Uy, solo nos quedan 15 kg de almendras. ¿Te sirven? 😊' },
       ],
       evaluar: async ({ capturas, db, telefono, respuesta, modo }) => {
         const problemas = [];
@@ -310,22 +310,22 @@ const ESCENARIOS = [
           ? /15/.test(JSON.stringify(pedido?.problemas ?? ''))
           : /15/.test(respuesta ?? '');
         if (!informa) problemas.push(`El rechazo no informa el stock disponible (15).`);
-        const salmon = await db.productos.buscarUno('Salmón fresco');
-        if (salmon && salmon.stock !== 15) problemas.push(`El rechazo alteró el stock: quedó en ${salmon.stock}`);
+        const almendras = await db.productos.buscarUno('Almendras');
+        if (almendras && almendras.stock !== 15) problemas.push(`El rechazo alteró el stock: quedó en ${almendras.stock}`);
         return problemas;
       },
     }],
   },
   {
-    nombre: 'BUG ítems duplicados: 10 + 10 kg de salmón (hay 15) debe rechazarse',
+    nombre: 'BUG ítems duplicados: 10 + 10 kg de almendras (hay 15) debe rechazarse',
     turnos: [{
-      user: 'Quiero 10 kg de salmón... ah y agrégame otros 10 kg más. Soy Diego, confirmo.',
+      user: 'Quiero 10 kg de almendras... ah y agrégame otros 10 kg más. Soy Diego, confirmo.',
       mock: [
         { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Diego', items: [
-          { producto: 'salmón', cantidad: 10 },
-          { producto: 'Salmón fresco (kg)', cantidad: 10 },
+          { producto: 'almendras', cantidad: 10 },
+          { producto: 'Almendras (kg)', cantidad: 10 },
         ] } }] },
-        { texto: 'Solo tenemos 15 kg de salmón en total. ¿Los dejo así? 😊' },
+        { texto: 'Solo tenemos 15 kg de almendras en total. ¿Los dejo así? 😊' },
       ],
       evaluar: async ({ capturas, db, telefono, modo }) => {
         const problemas = [];
@@ -336,8 +336,8 @@ const ESCENARIOS = [
         if (pedido?.creado || await db.pedidos.ultimoPorTelefono(telefono)) {
           problemas.push('Se creó un pedido de 20 kg con stock 15 (duplicados no validados en conjunto).');
         }
-        const salmon = await db.productos.buscarUno('Salmón fresco');
-        if (salmon && salmon.stock !== 15) problemas.push(`El stock quedó corrupto tras el intento: ${salmon.stock} (debía seguir en 15)`);
+        const almendras = await db.productos.buscarUno('Almendras');
+        if (almendras && almendras.stock !== 15) problemas.push(`El stock quedó corrupto tras el intento: ${almendras.stock} (debía seguir en 15)`);
         return problemas;
       },
     }],
@@ -346,9 +346,9 @@ const ESCENARIOS = [
     nombre: 'Pedido grande multi-ítem con dirección',
     turnos: [
       {
-        user: 'Hola, quiero 10 arroz, 5 lentejas y 3 aceites. Soy Marco, para Av. Italia 1234.',
+        user: 'Hola, quiero 10 bolsas de pasas, 5 de higos y 3 mantequillas de maní. Soy Marco, para Av. Italia 1234.',
         mock: [
-          { texto: 'Perfecto Marco: 10 arroz ($18.900), 5 lentejas ($12.450) y 3 aceites ($8.970) = $40.320, a Av. Italia 1234. ¿Confirmas? 😊' },
+          { texto: 'Perfecto Marco: 10 pasas ($34.900), 5 higos ($21.450) y 3 mantequillas de maní ($14.970) = $71.320, a Av. Italia 1234. ¿Confirmas? 😊' },
         ],
         evaluar: async () => [],
       },
@@ -359,34 +359,34 @@ const ESCENARIOS = [
             nombre_cliente: 'Marco',
             direccion: 'Av. Italia 1234',
             items: [
-              { producto: 'Arroz grado 1 (1 kg)', cantidad: 10 },
-              { producto: 'Lentejas (1 kg)', cantidad: 5 },
-              { producto: 'Aceite vegetal (900 ml)', cantidad: 3 },
+              { producto: 'Pasas rubias (bolsa 500 g)', cantidad: 10 },
+              { producto: 'Higos secos (bolsa 250 g)', cantidad: 5 },
+              { producto: 'Mantequilla de maní (frasco 500 g)', cantidad: 3 },
             ],
           } }] },
-          { texto: 'Pedido #1 confirmado por $40.320 a Av. Italia 1234. 😊' },
+          { texto: 'Pedido #1 confirmado por $71.320 a Av. Italia 1234. 😊' },
         ],
         evaluar: async ({ capturas, db, telefono }) => {
           const problemas = [];
           const [pedido] = capturaDe(capturas, 'crear_pedido');
           if (!pedido?.creado) problemas.push(`Pedido multi-ítem falló: ${JSON.stringify(pedido)}`);
-          if (pedido?.creado && pedido.pedido.total !== 40320) problemas.push(`Total esperado 40320, obtuvo ${pedido.pedido.total}`);
+          if (pedido?.creado && pedido.pedido.total !== 71320) problemas.push(`Total esperado 71320, obtuvo ${pedido.pedido.total}`);
           const guardado = await db.pedidos.ultimoPorTelefono(telefono);
           if (guardado && guardado.direccion !== 'Av. Italia 1234') problemas.push(`Dirección no guardada: ${guardado.direccion}`);
-          const arroz = await db.productos.buscarUno('Arroz grado 1');
-          if (arroz && arroz.stock !== 30) problemas.push(`Stock de arroz esperado 30, hay ${arroz.stock}`);
+          const pasas = await db.productos.buscarUno('Pasas rubias');
+          if (pasas && pasas.stock !== 12) problemas.push(`Stock de pasas esperado 12, hay ${pasas.stock}`);
           return problemas;
         },
       },
     ],
   },
   {
-    nombre: 'Ambigüedad: consultar stock de "comida" (hay de perro y de gato)',
+    nombre: 'Ambigüedad: consultar stock de "maní" (hay salado, sin sal y mantequilla)',
     turnos: [{
-      user: '¿Tienen comida? ¿a cuánto?',
+      user: '¿Tienen maní? ¿a cuánto?',
       mock: [
-        { tools: [{ name: 'consultar_stock', input: { producto: 'comida' } }] },
-        { texto: '¿Comida para perro ($34.990 el saco 15 kg) o para gato ($12.990 los 3 kg)? 😊' },
+        { tools: [{ name: 'consultar_stock', input: { producto: 'maní' } }] },
+        { texto: '¿Maní salado ($4.990 el kg), maní sin sal ($4.790 el kg) o mantequilla de maní ($4.990 el frasco)? 😊' },
       ],
       evaluar: async ({ capturas, respuesta, modo }) => {
         const [stock] = capturaDe(capturas, 'consultar_stock');
@@ -395,12 +395,12 @@ const ESCENARIOS = [
           // El modelo puede resolverlo sin consultar_stock (ej: buscar_productos
           // o preguntar directo). Lo prohibido: elegir UN producto al azar.
           const problemas = [];
-          if (!/\?/.test(respuesta ?? '')) problemas.push(`Ante "comida" (ambiguo) el agente no pidió aclaración: "${respuesta}"`);
+          if (!/\?/.test(respuesta ?? '')) problemas.push(`Ante "maní" (ambiguo) el agente no pidió aclaración: "${respuesta}"`);
           const precios = (respuesta ?? '').match(/\$\s?[\d.]+/g) ?? [];
           if (precios.length === 1) problemas.push(`El agente eligió un producto al azar y dio un solo precio: "${respuesta}"`);
           return problemas;
         }
-        return [`consultar_stock("comida") coincide con varios productos pero no avisa la ambigüedad (devuelve uno al azar): ${JSON.stringify(stock)}`];
+        return [`consultar_stock("maní") coincide con varios productos pero no avisa la ambigüedad (devuelve uno al azar): ${JSON.stringify(stock)}`];
       },
     }],
   },
@@ -408,10 +408,10 @@ const ESCENARIOS = [
     nombre: 'Cambio de pedido: cancelar y volver a pedir',
     turnos: [
       {
-        user: 'Quiero 2 mallas de choritos, soy Sofía. Confirmo.',
+        user: 'Quiero 2 bolsas de mix de frutos secos, soy Sofía. Confirmo.',
         mock: [
-          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Sofía', items: [{ producto: 'Choritos', cantidad: 2 }] } }] },
-          { texto: 'Listo Sofía: 2 mallas de choritos, $6.980. 😊' },
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Sofía', items: [{ producto: 'Mix frutos secos', cantidad: 2 }] } }] },
+          { texto: 'Listo Sofía: 2 bolsas de mix, $13.980. 😊' },
         ],
         evaluar: async ({ capturas }) => {
           const [pedido] = capturaDe(capturas, 'crear_pedido');
@@ -432,8 +432,8 @@ const ESCENARIOS = [
           } else {
             const pedido = await db.pedidos.ultimoPorTelefono(telefono);
             if (pedido?.estado !== 'cancelado') problemas.push(`El pedido no quedó en estado cancelado: ${pedido?.estado}`);
-            const choritos = await db.productos.buscarUno('Choritos');
-            if (choritos && choritos.stock !== 18) problemas.push(`El stock no se repuso al cancelar: hay ${choritos.stock}, esperaba 18`);
+            const mix = await db.productos.buscarUno('Mix frutos secos');
+            if (mix && mix.stock !== 18) problemas.push(`El stock no se repuso al cancelar: hay ${mix.stock}, esperaba 18`);
           }
           return problemas;
         },
@@ -457,10 +457,10 @@ const ESCENARIOS = [
   {
     nombre: 'Usuario confuso: pregunta vaga muestra el catálogo',
     turnos: [{
-      user: 'hola?? necesito comprar algo pa la casa',
+      user: 'hola?? necesito comprar algo pa un picoteo',
       mock: [
         { tools: [{ name: 'buscar_productos', input: {} }] },
-        { texto: 'Hola! Tenemos abarrotes, mariscos y productos para mascotas. ¿Qué andas buscando? 😊' },
+        { texto: 'Hola! Tenemos frutos secos al kilo, mix listos para picar y fruta deshidratada. ¿Qué andas buscando? 😊' },
       ],
       evaluar: async ({ capturas, respuesta, modo }) => {
         const [busqueda] = capturaDe(capturas, 'buscar_productos');
@@ -475,31 +475,39 @@ const ESCENARIOS = [
     }],
   },
   {
-    nombre: 'Fuera de alcance: "¿hacen delivery?" (solo evaluable con API)',
+    nombre: 'Datos del negocio: "¿hacen despacho?" responde con la info del prompt (solo evaluable con API)',
     turnos: [{
-      user: '¿Hacen delivery? ¿Puedo pagar con tarjeta?',
+      user: '¿Hacen despacho a domicilio? ¿Puedo pagar con tarjeta?',
       mock: [
-        { texto: 'Esa información aún no está cargada en el sistema. Te puedo ayudar con catálogo, stock y pedidos. 😊' },
+        { texto: 'Sí 😊 Despachamos en la RM por $2.990 (gratis sobre $30.000, llega en 24-48 horas hábiles) y puedes pagar con efectivo, tarjeta o transferencia. ¿Te tomo un pedido?' },
       ],
       evaluar: async ({ respuesta, modo }) => {
         if (modo !== 'api') return []; // sin modelo real no hay qué evaluar
-        const inventaDatos = /(lunes|martes|hora|km|\$\s?\d+.*(despacho|delivery|envío))/i.test(respuesta);
-        return inventaDatos ? [`Posible información de negocio inventada: "${respuesta}"`] : [];
+        // La info de despacho/pago de la tienda ficticia está en el system
+        // prompt: el agente debe usarla, no decir que "no está cargada".
+        const problemas = [];
+        if (!/despacho|env[ií]o|reparto|domicilio/i.test(respuesta ?? '')) {
+          problemas.push(`No respondió con la información de despacho de la tienda: "${respuesta}"`);
+        }
+        if (/no está cargada|no tengo esa información/i.test(respuesta ?? '')) {
+          problemas.push(`Dijo no tener la info de despacho, pero está en el prompt: "${respuesta}"`);
+        }
+        return problemas;
       },
     }],
   },
   {
-    nombre: 'Pedido con producto ambiguo ("comida") debe pedir aclarar, no adivinar',
+    nombre: 'Pedido con producto ambiguo ("maní") debe pedir aclarar, no adivinar',
     turnos: [{
-      user: 'Anótame 1 comida, soy Elisa. Confirmo.',
+      user: 'Anótame 1 maní, soy Elisa. Confirmo.',
       mock: [
-        { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Elisa', items: [{ producto: 'comida', cantidad: 1 }] } }] },
-        { texto: '¿Comida para perro o para gato? 😊' },
+        { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Elisa', items: [{ producto: 'maní', cantidad: 1 }] } }] },
+        { texto: '¿Maní salado, maní sin sal o mantequilla de maní? 😊' },
       ],
       evaluar: async ({ capturas, db, telefono, modo }) => {
         const problemas = [];
         const [pedido] = capturaDe(capturas, 'crear_pedido');
-        if (modo === 'mock' && (pedido?.creado !== false || !/perro.*gato|gato.*perro/is.test(JSON.stringify(pedido?.problemas ?? '')))) {
+        if (modo === 'mock' && (pedido?.creado !== false || !/salado.*sin sal|sin sal.*salado/is.test(JSON.stringify(pedido?.problemas ?? '')))) {
           problemas.push(`crear_pedido con ítem ambiguo debió rechazar listando los candidatos: ${JSON.stringify(pedido)}`);
         }
         // API: puede preguntar sin llamar la herramienta — el invariante es
@@ -512,38 +520,38 @@ const ESCENARIOS = [
   {
     nombre: 'Atomicidad: ítem válido + ítem inexistente no crea nada',
     turnos: [{
-      user: 'Quiero 2 kg de salmón y 1 kg de lenguado. Soy Bruno, confirmo.',
+      user: 'Quiero 2 kg de almendras y 1 kg de pistachos. Soy Bruno, confirmo.',
       mock: [
         { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Bruno', items: [
-          { producto: 'salmón', cantidad: 2 },
-          { producto: 'lenguado', cantidad: 1 },
+          { producto: 'almendras', cantidad: 2 },
+          { producto: 'pistachos', cantidad: 1 },
         ] } }] },
-        { texto: 'El lenguado no lo tenemos. ¿Dejo solo los 2 kg de salmón? 😊' },
+        { texto: 'Los pistachos no los tenemos. ¿Dejo solo los 2 kg de almendras? 😊' },
       ],
       evaluar: async ({ capturas, db, telefono, modo }) => {
         const problemas = [];
         const [pedido] = capturaDe(capturas, 'crear_pedido');
         if (modo === 'mock' && pedido?.creado !== false) problemas.push(`Un pedido con un ítem inexistente debió rechazarse completo: ${JSON.stringify(pedido)}`);
-        const salmon = await db.productos.buscarUno('Salmón fresco');
-        if (salmon && salmon.stock !== 15) problemas.push(`El rechazo descontó stock igual: ${salmon.stock}`);
-        // API: lo correcto es avisar del lenguado y preguntar si deja solo el
-        // salmón — sin crear nada todavía.
+        const almendras = await db.productos.buscarUno('Almendras');
+        if (almendras && almendras.stock !== 15) problemas.push(`El rechazo descontó stock igual: ${almendras.stock}`);
+        // API: lo correcto es avisar de los pistachos y preguntar si deja solo
+        // las almendras — sin crear nada todavía.
         if (await db.pedidos.ultimoPorTelefono(telefono)) problemas.push('Quedó un pedido a medias en la base (debió confirmar antes de crear parcial).');
         return problemas;
       },
     }],
   },
   {
-    nombre: 'Decimales repartidos: 0,5 + 0,7 kg de salmón se suman como 1,2 kg',
+    nombre: 'Decimales repartidos: 0,5 + 0,7 kg de almendras se suman como 1,2 kg',
     turnos: [
       {
-        user: 'Medio kilo de salmón... y ponle 700 gramos más. Soy Iris, confirmo.',
+        user: 'Medio kilo de almendras... y ponle 700 gramos más. Soy Iris, confirmo.',
         mock: [
           { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Iris', items: [
-            { producto: 'salmón', cantidad: 0.5 },
-            { producto: 'salmón', cantidad: 0.7 },
+            { producto: 'almendras', cantidad: 0.5 },
+            { producto: 'almendras', cantidad: 0.7 },
           ] } }] },
-          { texto: 'Listo Iris: 1,2 kg de salmón, $15.588. 😊' },
+          { texto: 'Listo Iris: 1,2 kg de almendras, $15.588. 😊' },
         ],
         evaluar: async ({ capturas, modo }) => {
           if (modo !== 'mock') return []; // en API puede pedir confirmación primero
@@ -557,10 +565,10 @@ const ESCENARIOS = [
     alFinal: async ({ db, telefono }) => {
       const problemas = [];
       const pedido = await db.pedidos.ultimoPorTelefono(telefono);
-      if (!pedido) problemas.push('El pedido de 1,2 kg de salmón nunca se creó (ni tras confirmar).');
+      if (!pedido) problemas.push('El pedido de 1,2 kg de almendras nunca se creó (ni tras confirmar).');
       else if (pedido.total !== 15588) problemas.push(`Total esperado 15588 (12990 × 1,2), obtuvo ${pedido.total}`);
-      const salmon = await db.productos.buscarUno('Salmón fresco');
-      if (pedido && salmon && Math.abs(salmon.stock - 13.8) > 0.001) problemas.push(`Stock esperado 13,8 kg, hay ${salmon.stock}`);
+      const almendras = await db.productos.buscarUno('Almendras');
+      if (pedido && almendras && Math.abs(almendras.stock - 13.8) > 0.001) problemas.push(`Stock esperado 13,8 kg, hay ${almendras.stock}`);
       return problemas;
     },
   },
@@ -568,9 +576,9 @@ const ESCENARIOS = [
     nombre: 'Doble cancelación: la segunda no repone stock de nuevo',
     turnos: [
       {
-        user: 'Quiero 2 mallas de choritos, soy Tomás. Confirmo. ...uy no, cancélalo mejor.',
+        user: 'Quiero 2 bolsas de mix, soy Tomás. Confirmo. ...uy no, cancélalo mejor.',
         mock: [
-          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Tomás', items: [{ producto: 'Choritos', cantidad: 2 }] } }] },
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Tomás', items: [{ producto: 'Mix frutos secos', cantidad: 2 }] } }] },
           { tools: [{ name: 'cancelar_pedido', input: {} }] },
           { texto: 'Listo, pedido cancelado. 😊' },
         ],
@@ -606,8 +614,8 @@ const ESCENARIOS = [
       // Si en API el modelo optó por no crear el pedido que el cliente canceló
       // en el mismo mensaje, también es un final válido (no hay nada que cancelar).
       if (pedido && pedido.estado !== 'cancelado') problemas.push(`El pedido debió quedar cancelado: ${pedido.estado}`);
-      const choritos = await db.productos.buscarUno('Choritos');
-      if (choritos && choritos.stock !== 18) problemas.push(`Stock final de choritos ${choritos.stock}, esperaba 18 (sin doble reposición).`);
+      const mix = await db.productos.buscarUno('Mix frutos secos');
+      if (mix && mix.stock !== 18) problemas.push(`Stock final del mix ${mix.stock}, esperaba 18 (sin doble reposición).`);
       return problemas;
     },
   },
@@ -615,8 +623,8 @@ const ESCENARIOS = [
     nombre: 'Pedido ya en preparación no se puede cancelar por el bot',
     antes: async ({ db, telefono }) => {
       const pedido = await db.pedidos.crear(
-        { telefono_cliente: telefono, nombre_cliente: 'Vera', direccion: null, notas: null, total: 3490 },
-        [{ producto_id: 6, nombre_producto: 'Choritos (malla 1 kg)', cantidad: 1, precio_unitario: 3490 }]
+        { telefono_cliente: telefono, nombre_cliente: 'Vera', direccion: null, notas: null, total: 6990 },
+        [{ producto_id: 6, nombre_producto: 'Mix frutos secos (bolsa 500 g)', cantidad: 1, precio_unitario: 6990 }]
       );
       await db.pedidos.actualizarEstado(pedido.id, 'preparando');
     },
@@ -646,22 +654,22 @@ const ESCENARIOS = [
     nombre: 'Producto agotado: pedirlo todo y consultar después',
     turnos: [
       {
-        user: 'Llevo los 12 sacos de comida de perro, soy Óscar (tengo un criadero). Confirmo.',
+        user: 'Llevo los 12 frascos de mantequilla de maní, soy Óscar (tengo una cafetería). Confirmo.',
         mock: [
-          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Óscar', items: [{ producto: 'Comida perro adulto (15 kg)', cantidad: 12 }] } }] },
-          { texto: 'Listo Óscar: 12 sacos, $419.880. Con eso quedamos sin stock. 😊' },
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Óscar', items: [{ producto: 'Mantequilla de maní (frasco 500 g)', cantidad: 12 }] } }] },
+          { texto: 'Listo Óscar: 12 frascos, $59.880. Con eso quedamos sin stock. 😊' },
         ],
         evaluar: async ({ capturas, modo }) => {
-          if (modo !== 'mock') return []; // en API puede pedir confirmación (es un pedido de $419.880)
+          if (modo !== 'mock') return []; // en API puede pedir confirmación primero
           const [pedido] = capturaDe(capturas, 'crear_pedido');
           return pedido?.creado === true ? [] : [`Comprar el stock exacto (12 de 12) debió aceptarse: ${JSON.stringify(pedido)}`];
         },
       },
       { soloApi: true, user: 'Sí, dale, confírmalo.', evaluar: async () => [] },
       {
-        user: '¿Y les queda comida de perro?',
+        user: '¿Y les queda mantequilla de maní?',
         mock: [
-          { tools: [{ name: 'consultar_stock', input: { producto: 'Comida perro adulto (15 kg)' } }] },
+          { tools: [{ name: 'consultar_stock', input: { producto: 'Mantequilla de maní (frasco 500 g)' } }] },
           { texto: 'Se nos agotó justo con tu pedido 😅 ¿Te aviso cuando repongamos?' },
         ],
         evaluar: async ({ capturas, respuesta, modo }) => {
@@ -682,10 +690,10 @@ const ESCENARIOS = [
     alFinal: async ({ db, telefono }) => {
       const problemas = [];
       const pedido = await db.pedidos.ultimoPorTelefono(telefono);
-      if (!pedido || pedido.estado === 'cancelado') problemas.push('El pedido de los 12 sacos no quedó creado.');
-      else if (pedido.total !== 419880) problemas.push(`Total esperado 419880, obtuvo ${pedido.total}`);
-      const comida = await db.productos.buscarUno('Comida perro adulto');
-      if (pedido && comida && comida.stock !== 0) problemas.push(`Stock esperado 0 tras vender todo, hay ${comida.stock}`);
+      if (!pedido || pedido.estado === 'cancelado') problemas.push('El pedido de los 12 frascos no quedó creado.');
+      else if (pedido.total !== 59880) problemas.push(`Total esperado 59880, obtuvo ${pedido.total}`);
+      const mantequilla = await db.productos.buscarUno('Mantequilla de maní');
+      if (pedido && mantequilla && mantequilla.stock !== 0) problemas.push(`Stock esperado 0 tras vender todo, hay ${mantequilla.stock}`);
       return problemas;
     },
   },
@@ -693,10 +701,10 @@ const ESCENARIOS = [
     nombre: 'Confirmación repetida: "confirmo" dos veces no duplica el pedido',
     turnos: [
       {
-        user: 'Quiero 2 kg de salmón, soy Nadia. Confirmo.',
+        user: 'Quiero 2 kg de almendras, soy Nadia. Confirmo.',
         mock: [
-          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Nadia', items: [{ producto: 'salmón', cantidad: 2 }] } }] },
-          { texto: 'Listo Nadia: 2 kg de salmón, $25.980. 😊' },
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Nadia', items: [{ producto: 'almendras', cantidad: 2 }] } }] },
+          { texto: 'Listo Nadia: 2 kg de almendras, $25.980. 😊' },
         ],
         evaluar: async ({ modo, capturas }) => {
           if (modo !== 'mock') return [];
@@ -710,7 +718,7 @@ const ESCENARIOS = [
         // vuelve a llamar crear_pedido, la guarda de duplicados debe frenarlo.
         user: 'confirmo!',
         mock: [
-          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Nadia', items: [{ producto: 'salmón', cantidad: 2 }] } }] },
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'Nadia', items: [{ producto: 'almendras', cantidad: 2 }] } }] },
           { texto: 'Tu pedido ya quedó registrado, Nadia 😊' },
         ],
         evaluar: async ({ capturas, modo }) => {
@@ -726,8 +734,8 @@ const ESCENARIOS = [
       const problemas = [];
       const pedido = await db.pedidos.ultimoPorTelefono(telefono);
       if (!pedido || pedido.total !== 25980) problemas.push(`Debe existir UN pedido por $25.980: ${JSON.stringify(pedido?.total)}`);
-      const salmon = await db.productos.buscarUno('Salmón fresco');
-      if (salmon && salmon.stock !== 13) problemas.push(`El stock se descontó dos veces: hay ${salmon.stock}, esperaba 13.`);
+      const almendras = await db.productos.buscarUno('Almendras');
+      if (almendras && almendras.stock !== 13) problemas.push(`El stock se descontó dos veces: hay ${almendras.stock}, esperaba 13.`);
       return problemas;
     },
   },
@@ -735,7 +743,7 @@ const ESCENARIOS = [
     nombre: 'Seguridad del loop: el modelo pide herramientas sin parar (corte a las 6 rondas)',
     turnos: [{
       user: 'dame el precio de todo',
-      mock: Array.from({ length: 8 }, () => ({ tools: [{ name: 'consultar_stock', input: { producto: 'salmón' } }] })),
+      mock: Array.from({ length: 8 }, () => ({ tools: [{ name: 'consultar_stock', input: { producto: 'almendras' } }] })),
       evaluar: async ({ capturas, respuesta }) => {
         const problemas = [];
         if (capturas.length > 6) problemas.push(`El loop ejecutó ${capturas.length} rondas de herramientas (máximo diseñado: 6).`);

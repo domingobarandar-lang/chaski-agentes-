@@ -21,19 +21,21 @@ const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KE
 
 // ─── Implementación en memoria (modo demo) ───────────────────────────────────
 
-// Catálogo demo como factory: el stock se muta con cada pedido, y el
-// simulador (scripts/test-chat.js) necesita restaurar el estado inicial.
+// Catálogo demo de la empresa FICTICIA "Frutos Secos La Cosecha", como
+// factory: el stock se muta con cada pedido, y el simulador
+// (scripts/test-chat.js) necesita restaurar el estado inicial.
+// OJO: la suite de tests depende de estos nombres, precios y stocks.
 const productosDemo = () => [
-  { id: 1,  nombre: 'Arroz grado 1 (1 kg)',            descripcion: 'Bolsa de arroz grano largo',          categoria: 'abarrotes', precio: 1890,  unidad: 'un',  stock: 40, activo: true },
-  { id: 2,  nombre: 'Lentejas (1 kg)',                 descripcion: 'Lentejas seleccionadas',              categoria: 'abarrotes', precio: 2490,  unidad: 'un',  stock: 25, activo: true },
-  { id: 3,  nombre: 'Aceite vegetal (900 ml)',         descripcion: 'Aceite de maravilla',                 categoria: 'abarrotes', precio: 2990,  unidad: 'un',  stock: 30, activo: true },
-  { id: 4,  nombre: 'Salmón fresco (kg)',              descripcion: 'Filete de salmón del día',            categoria: 'mariscos',  precio: 12990, unidad: 'kg',  stock: 15, activo: true },
-  { id: 5,  nombre: 'Camarones ecuatorianos (kg)',     descripcion: 'Camarón 36/40 congelado',             categoria: 'mariscos',  precio: 10990, unidad: 'kg',  stock: 20, activo: true },
-  { id: 6,  nombre: 'Choritos (malla 1 kg)',           descripcion: 'Choritos frescos de Chiloé',          categoria: 'mariscos',  precio: 3490,  unidad: 'un',  stock: 18, activo: true },
-  { id: 7,  nombre: 'Comida perro adulto (15 kg)',     descripcion: 'Saco de alimento premium para perro', categoria: 'mascotas',  precio: 34990, unidad: 'un',  stock: 12, activo: true },
-  { id: 8,  nombre: 'Comida gato (3 kg)',              descripcion: 'Alimento para gato adulto',           categoria: 'mascotas',  precio: 12990, unidad: 'un',  stock: 22, activo: true },
-  { id: 9,  nombre: 'Arena sanitaria (10 L)',          descripcion: 'Arena aglomerante para gato',         categoria: 'mascotas',  precio: 8990,  unidad: 'un',  stock: 16, activo: true },
-  { id: 10, nombre: 'Snacks para perro (paquete)',     descripcion: 'Galletas de entrenamiento',           categoria: 'mascotas',  precio: 3990,  unidad: 'un',  stock: 35, activo: true },
+  { id: 1,  nombre: 'Maní salado (kg)',                   descripcion: 'Maní tostado y salado, bien crocante',        categoria: 'frutos secos',       precio: 4990,  unidad: 'kg', stock: 30, activo: true },
+  { id: 2,  nombre: 'Maní sin sal (kg)',                  descripcion: 'Maní tostado natural, sin sal',               categoria: 'frutos secos',       precio: 4790,  unidad: 'kg', stock: 25, activo: true },
+  { id: 3,  nombre: 'Almendras (kg)',                     descripcion: 'Almendras naturales seleccionadas',           categoria: 'frutos secos',       precio: 12990, unidad: 'kg', stock: 15, activo: true },
+  { id: 4,  nombre: 'Nueces mariposa (kg)',               descripcion: 'Nuez chilena partida, extra clara',           categoria: 'frutos secos',       precio: 14990, unidad: 'kg', stock: 10, activo: true },
+  { id: 5,  nombre: 'Castañas de cajú (kg)',              descripcion: 'Cajú tostado, sin sal',                       categoria: 'frutos secos',       precio: 11990, unidad: 'kg', stock: 20, activo: true },
+  { id: 6,  nombre: 'Mix frutos secos (bolsa 500 g)',     descripcion: 'Mezcla de maní, almendras, nueces y pasas',   categoria: 'mix',                precio: 6990,  unidad: 'un', stock: 18, activo: true },
+  { id: 7,  nombre: 'Pasas rubias (bolsa 500 g)',         descripcion: 'Pasas rubias jumbo, sin semilla',             categoria: 'fruta deshidratada', precio: 3490,  unidad: 'un', stock: 22, activo: true },
+  { id: 8,  nombre: 'Higos secos (bolsa 250 g)',          descripcion: 'Higos deshidratados premium',                 categoria: 'fruta deshidratada', precio: 4290,  unidad: 'un', stock: 16, activo: true },
+  { id: 9,  nombre: 'Dátiles sin cuesco (caja 250 g)',    descripcion: 'Dátiles Medjool importados',                  categoria: 'fruta deshidratada', precio: 5990,  unidad: 'un', stock: 14, activo: true },
+  { id: 10, nombre: 'Mantequilla de maní (frasco 500 g)', descripcion: '100% maní, sin azúcar añadida',               categoria: 'despensa',           precio: 4990,  unidad: 'un', stock: 12, activo: true },
 ];
 
 const memoria = {
@@ -43,12 +45,12 @@ const memoria = {
   proximoIdPedido: 1,
 };
 
-// Minúsculas y sin tildes, para que "salmon" encuentre "Salmón"
+// Minúsculas y sin tildes, para que "mani" encuentre "Maní"
 const normalizar = (s) => String(s || '').toLowerCase()
   .normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 // ─── Búsqueda por tokens ──────────────────────────────────────────────────────
-// "alimento para perros de 15kg" → ["alimento", "perro", "15", "kg"] y se exige
+// "mix de frutos secos de 500g" → ["mix", "frutos", "secos", "500", "g"] y se exige
 // que TODOS los tokens aparezcan en nombre+descripción+categoría. Así las
 // frases naturales de WhatsApp encuentran productos aunque no calcen literal.
 
@@ -58,7 +60,7 @@ const STOPWORDS = new Set([
   'su', 'tu', 'le', 'lo', 'se', 'a', 'e',
 ]);
 
-// "perros" → "perro", "camarones" → "camaron" (heurística simple)
+// "almendras" → "almendra", "nueces" → "nuec" (heurística simple)
 function singularizar(token) {
   if (token.length > 4 && token.endsWith('es')) return token.slice(0, -2);
   if (token.length > 3 && token.endsWith('s')) return token.slice(0, -1);

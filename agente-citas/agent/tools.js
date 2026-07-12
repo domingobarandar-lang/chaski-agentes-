@@ -12,7 +12,7 @@ const TOOL_DEFINITIONS = [
     input_schema: {
       type: 'object',
       properties: {
-        categoria: { type: 'string', description: 'Filtro opcional por categoría (ej: "dental", "menú", "corte")' },
+        categoria: { type: 'string', description: 'Filtro opcional por categoría (ej: "consulta", "higiene", "estética", "ortodoncia")' },
       },
     },
   },
@@ -37,7 +37,7 @@ const TOOL_DEFINITIONS = [
         servicio: { type: 'string', description: 'Servicio del catálogo que quiere reservar' },
         fecha:    { type: 'string', description: 'Fecha en formato YYYY-MM-DD' },
         hora:     { type: 'string', description: 'Hora en formato HH:MM (24h)' },
-        personas: { type: 'integer', description: 'Cantidad de personas (restaurantes). Default 1.' },
+        personas: { type: 'integer', description: 'Cantidad de personas (si aplica). Default 1.' },
         notas:    { type: 'string', description: 'Comentario opcional del cliente' },
       },
       required: ['nombre', 'servicio', 'fecha', 'hora'],

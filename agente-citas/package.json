@@ -1,7 +1,7 @@
 {
   "name": "agente-citas-whatsapp",
   "version": "0.1.0",
-  "description": "Agente WhatsApp genérico de reservas de horas + catálogo (dentistas, restaurantes, servicios) — demo/MVP",
+  "description": "Agente WhatsApp de reservas de horas — demo con clínica dental ficticia (Clínica Dental Sonrisa del Valle)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

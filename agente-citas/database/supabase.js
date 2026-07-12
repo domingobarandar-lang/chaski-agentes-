@@ -21,14 +21,19 @@ const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KE
 
 // ─── Implementación en memoria (modo demo) ───────────────────────────────────
 
+// Catálogo demo de la empresa FICTICIA "Clínica Dental Sonrisa del Valle"
+// (los nombres y precios de los 3 primeros servicios los usa la suite de tests).
 const memoria = {
   sesiones: new Map(), // telefono → messages[]
   catalogo: [
-    { id: 1, nombre: 'Consulta general',      descripcion: 'Evaluación inicial con el profesional',  categoria: 'consulta',    precio: 25000, duracion_minutos: 30, activo: true },
-    { id: 2, nombre: 'Limpieza dental',       descripcion: 'Destartraje y profilaxis completa',      categoria: 'dental',      precio: 45000, duracion_minutos: 60, activo: true },
-    { id: 3, nombre: 'Blanqueamiento',        descripcion: 'Blanqueamiento dental en 1 sesión',      categoria: 'dental',      precio: 120000, duracion_minutos: 90, activo: true },
-    { id: 4, nombre: 'Mesa para 2 personas',  descripcion: 'Reserva de mesa estándar',               categoria: 'restaurante', precio: 0,     duracion_minutos: 90, activo: true },
-    { id: 5, nombre: 'Mesa para 4-6 personas', descripcion: 'Reserva de mesa grande',                categoria: 'restaurante', precio: 0,     duracion_minutos: 120, activo: true },
+    { id: 1, nombre: 'Consulta general',         descripcion: 'Evaluación inicial con odontólogo general',            categoria: 'consulta',     precio: 25000,  duracion_minutos: 30, activo: true },
+    { id: 2, nombre: 'Limpieza dental',          descripcion: 'Destartraje ultrasónico y profilaxis completa',        categoria: 'higiene',      precio: 45000,  duracion_minutos: 60, activo: true },
+    { id: 3, nombre: 'Blanqueamiento',           descripcion: 'Blanqueamiento dental LED en 1 sesión',                categoria: 'estética',     precio: 120000, duracion_minutos: 90, activo: true },
+    { id: 4, nombre: 'Urgencia dental',          descripcion: 'Atención de dolor agudo, fractura o trauma',           categoria: 'urgencia',     precio: 35000,  duracion_minutos: 45, activo: true },
+    { id: 5, nombre: 'Extracción simple',        descripcion: 'Extracción de pieza dental con anestesia local',       categoria: 'cirugía',      precio: 40000,  duracion_minutos: 45, activo: true },
+    { id: 6, nombre: 'Endodoncia',               descripcion: 'Tratamiento de conducto por pieza',                    categoria: 'tratamiento',  precio: 180000, duracion_minutos: 90, activo: true },
+    { id: 7, nombre: 'Evaluación de ortodoncia', descripcion: 'Diagnóstico y plan de tratamiento con la ortodoncista', categoria: 'ortodoncia',  precio: 20000,  duracion_minutos: 45, activo: true },
+    { id: 8, nombre: 'Radiografía panorámica',   descripcion: 'Imagen panorámica digital, entrega inmediata',         categoria: 'imagenología', precio: 18000,  duracion_minutos: 20, activo: true },
   ],
   // 0=domingo ... 6=sábado (domingo cerrado)
   horarios: new Map([

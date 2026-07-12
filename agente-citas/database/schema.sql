@@ -51,7 +51,7 @@ alter table catalogo disable row level security;
 alter table horarios disable row level security;
 alter table citas    disable row level security;
 
--- ─── Datos de ejemplo ────────────────────────────────────────────────────────
+-- ─── Datos de ejemplo (empresa FICTICIA: Clínica Dental Sonrisa del Valle) ───
 
 insert into horarios (dia_semana, abre, cierra) values
   (1, '09:00', '19:00'),
@@ -63,8 +63,15 @@ insert into horarios (dia_semana, abre, cierra) values
 on conflict (dia_semana) do nothing;
 
 insert into catalogo (nombre, descripcion, categoria, precio, duracion_minutos) values
-  ('Consulta general',       'Evaluación inicial con el profesional', 'consulta',    25000,  30),
-  ('Limpieza dental',        'Destartraje y profilaxis completa',     'dental',      45000,  60),
-  ('Blanqueamiento',         'Blanqueamiento dental en 1 sesión',     'dental',      120000, 90),
-  ('Mesa para 2 personas',   'Reserva de mesa estándar',              'restaurante', 0,      90),
-  ('Mesa para 4-6 personas', 'Reserva de mesa grande',                'restaurante', 0,      120);
+  ('Consulta general',         'Evaluación inicial con odontólogo general',             'consulta',     25000,  30),
+  ('Limpieza dental',          'Destartraje ultrasónico y profilaxis completa',         'higiene',      45000,  60),
+  ('Blanqueamiento',           'Blanqueamiento dental LED en 1 sesión',                 'estética',     120000, 90),
+  ('Urgencia dental',          'Atención de dolor agudo, fractura o trauma',            'urgencia',     35000,  45),
+  ('Extracción simple',        'Extracción de pieza dental con anestesia local',        'cirugía',      40000,  45),
+  ('Endodoncia',               'Tratamiento de conducto por pieza',                     'tratamiento',  180000, 90),
+  ('Evaluación de ortodoncia', 'Diagnóstico y plan de tratamiento con la ortodoncista', 'ortodoncia',   20000,  45),
+  ('Radiografía panorámica',   'Imagen panorámica digital, entrega inmediata',          'imagenología', 18000,  20);
+
+-- Si la base YA tenía el catálogo antiguo (mesas de restaurante, etc.),
+-- reemplazarlo por el de la clínica corriendo esto ANTES del insert de arriba:
+--   delete from catalogo;

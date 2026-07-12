@@ -1,7 +1,7 @@
 {
   "name": "agente-retail-whatsapp",
   "version": "0.1.0",
-  "description": "Agente WhatsApp genérico para retail al por menor (productos secos, mariscos, pet shop) — stock y pedidos. Demo/MVP",
+  "description": "Agente WhatsApp de stock y pedidos — demo con tienda de frutos secos ficticia (Frutos Secos La Cosecha)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

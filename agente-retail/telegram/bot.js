@@ -31,16 +31,16 @@ const MODO_MOCK =
 const MAX_CHARS_TELEGRAM = 4096;
 
 const SALUDO =
-  '¡Hola! Soy el asistente de la tienda 😊 Puedo mostrarte *productos y precios*, revisar *stock*, y tomar, consultar o cancelar tu *pedido*. ¿Qué necesitas?';
+  '¡Hola! Soy el asistente de *Frutos Secos La Cosecha* 😊 Puedo mostrarte *productos y precios*, revisar *stock*, y tomar, consultar o cancelar tu *pedido*. ¿Qué necesitas?';
 
 const AYUDA =
   'Comandos disponibles:\n' +
   '/start — Ver el mensaje de bienvenida\n' +
   '/help — Ver esta ayuda\n\n' +
   'También puedes escribirme directamente, por ejemplo:\n' +
-  '- "¿Qué tienen disponible?"\n' +
-  '- "¿Tienen salmón? ¿A cuánto el kilo?"\n' +
-  '- "Quiero 2 kilos de salmón, soy Pedro"\n' +
+  '- "¿Qué frutos secos tienen?"\n' +
+  '- "¿Tienen almendras? ¿A cuánto el kilo?"\n' +
+  '- "Quiero 2 kilos de almendras, soy Pedro"\n' +
   '- "¿Cómo va mi pedido?"';
 
 const SOLO_TEXTO = 'Solo puedo responder mensajes de texto 😊';
@@ -199,47 +199,47 @@ function arrancarModoMock() {
 
   const CONVERSACIONES = [
     {
-      nombre: 'Buscar productos para mascotas',
+      nombre: 'Ver los frutos secos a granel',
       chatId: 222001,
       turnos: [{
-        user: 'Hola! ¿Qué tienen para mascotas?',
+        user: 'Hola! ¿Qué frutos secos tienen?',
         modelo: [
-          { tools: [{ name: 'buscar_productos', input: { categoria: 'mascotas' } }] },
+          { tools: [{ name: 'buscar_productos', input: { categoria: 'frutos secos' } }] },
           { text: (last) => {
               const r = last('buscar_productos');
               if (!r?.productos?.length) return 'Por ahora no tengo productos en esa categoría 😅';
-              return '¡Hola! 😊 Para mascotas tenemos:\n' +
+              return '¡Hola! 😊 A granel tenemos:\n' +
                 r.productos.map((p) => `• *${p.nombre}* — ${clp(p.precio)} (stock: ${p.stock})`).join('\n') +
                 '\n\n¿Te preparo un pedido?';
             } },
         ],
       }],
-      verificar: (respuestas) => /perro/i.test(respuestas[0]) && /gato/i.test(respuestas[0]),
+      verificar: (respuestas) => /almendras/i.test(respuestas[0]) && /nueces/i.test(respuestas[0]),
     },
     {
       nombre: 'Consultar precio y crear pedido',
       chatId: 222002,
       turnos: [
         {
-          user: '¿Tienen choritos? ¿A cuánto la malla?',
+          user: '¿Tienen almendras? ¿A cuánto el kilo?',
           modelo: [
-            { tools: [{ name: 'consultar_stock', input: { producto: 'choritos' } }] },
+            { tools: [{ name: 'consultar_stock', input: { producto: 'almendras' } }] },
             { text: (last) => {
                 const r = last('consultar_stock');
                 if (!r?.encontrado) return 'No encontré ese producto 😅';
                 const p = r.producto;
-                return `Sí 😊 *${p.nombre}* a ${clp(p.precio)}, quedan ${p.stock} disponibles. ¿Te anoto un pedido?`;
+                return `Sí 😊 *${p.nombre}* a ${clp(p.precio)}, quedan ${p.stock} kg disponibles. ¿Te anoto un pedido?`;
               } },
           ],
         },
         {
-          user: 'Ya, dame 2 mallas de choritos y 1 kg de salmón fresco. Soy Pedro',
+          user: 'Ya, dame 2 kilos de almendras y 1 mix de frutos secos. Soy Pedro',
           modelo: [
             { tools: [{ name: 'crear_pedido', input: {
                 nombre_cliente: 'Pedro',
                 items: [
-                  { producto: 'Choritos', cantidad: 2 },
-                  { producto: 'Salmón fresco', cantidad: 1 },
+                  { producto: 'Almendras', cantidad: 2 },
+                  { producto: 'Mix frutos secos', cantidad: 1 },
                 ],
               } }] },
             { text: (last) => {

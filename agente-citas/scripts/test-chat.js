@@ -430,13 +430,12 @@ const ESCENARIOS = [
     nombre: 'EDGE: usuario confuso — presentarse y ofrecer opciones',
     turnos: [{
       user: 'hola?? me dijeron que escribiera aquí pero no cacho para qué',
-      modelo: [{ text: '¡Hola! Soy tu asistente de reservas 😊 Puedo mostrarte el catálogo de servicios con sus precios, o agendarte una hora. ¿Qué te gustaría?' }],
+      modelo: [{ text: '¡Hola! Soy el asistente de Clínica Dental Sonrisa del Valle 😊 Puedo mostrarte el catálogo de servicios con sus precios, o agendarte una hora. ¿Qué te gustaría?' }],
     }],
     async expect(ctx, check) {
       const r = ctx.respuestas[0];
-      check(/asistente de reservas/i.test(r), 'No se presenta de forma genérica ("asistente de reservas")');
-      check(/cat[aá]logo/i.test(r) && /agendar/i.test(r), 'No ofrece sus dos funciones (catálogo y agendar)');
-      check(!/gesta|cl[ií]nica|restaurante\s+\w+/i.test(r), 'Se presentó como una empresa específica (debe ser genérico)');
+      check(/sonrisa del valle/i.test(r), 'No se presenta como la clínica de la demo ("Clínica Dental Sonrisa del Valle")');
+      check((/cat[aá]logo|servicio/i.test(r)) && /agendar/i.test(r), 'No ofrece sus dos funciones (ver servicios y agendar)');
     },
   },
   {

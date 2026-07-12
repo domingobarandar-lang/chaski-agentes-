@@ -52,16 +52,23 @@ alter table productos    disable row level security;
 alter table pedidos      disable row level security;
 alter table pedido_items disable row level security;
 
--- ─── Datos de ejemplo ────────────────────────────────────────────────────────
+-- ─── Datos de ejemplo (empresa FICTICIA: Frutos Secos La Cosecha) ────────────
 
 insert into productos (nombre, descripcion, categoria, precio, unidad, stock) values
-  ('Arroz grado 1 (1 kg)',        'Bolsa de arroz grano largo',          'abarrotes', 1890,  'un', 40),
-  ('Lentejas (1 kg)',             'Lentejas seleccionadas',              'abarrotes', 2490,  'un', 25),
-  ('Aceite vegetal (900 ml)',     'Aceite de maravilla',                 'abarrotes', 2990,  'un', 30),
-  ('Salmón fresco (kg)',          'Filete de salmón del día',            'mariscos',  12990, 'kg', 15),
-  ('Camarones ecuatorianos (kg)', 'Camarón 36/40 congelado',             'mariscos',  10990, 'kg', 20),
-  ('Choritos (malla 1 kg)',       'Choritos frescos de Chiloé',          'mariscos',  3490,  'un', 18),
-  ('Comida perro adulto (15 kg)', 'Saco de alimento premium para perro', 'mascotas',  34990, 'un', 12),
-  ('Comida gato (3 kg)',          'Alimento para gato adulto',           'mascotas',  12990, 'un', 22),
-  ('Arena sanitaria (10 L)',      'Arena aglomerante para gato',         'mascotas',  8990,  'un', 16),
-  ('Snacks para perro (paquete)', 'Galletas de entrenamiento',           'mascotas',  3990,  'un', 35);
+  ('Maní salado (kg)',                   'Maní tostado y salado, bien crocante',      'frutos secos',       4990,  'kg', 30),
+  ('Maní sin sal (kg)',                  'Maní tostado natural, sin sal',             'frutos secos',       4790,  'kg', 25),
+  ('Almendras (kg)',                     'Almendras naturales seleccionadas',         'frutos secos',       12990, 'kg', 15),
+  ('Nueces mariposa (kg)',               'Nuez chilena partida, extra clara',         'frutos secos',       14990, 'kg', 10),
+  ('Castañas de cajú (kg)',              'Cajú tostado, sin sal',                     'frutos secos',       11990, 'kg', 20),
+  ('Mix frutos secos (bolsa 500 g)',     'Mezcla de maní, almendras, nueces y pasas', 'mix',                6990,  'un', 18),
+  ('Pasas rubias (bolsa 500 g)',         'Pasas rubias jumbo, sin semilla',           'fruta deshidratada', 3490,  'un', 22),
+  ('Higos secos (bolsa 250 g)',          'Higos deshidratados premium',               'fruta deshidratada', 4290,  'un', 16),
+  ('Dátiles sin cuesco (caja 250 g)',    'Dátiles Medjool importados',                'fruta deshidratada', 5990,  'un', 14),
+  ('Mantequilla de maní (frasco 500 g)', '100% maní, sin azúcar añadida',             'despensa',           4990,  'un', 12);
+
+-- Si la base YA tenía el catálogo antiguo (abarrotes/mariscos/mascotas),
+-- reemplazarlo por el de la tienda de frutos secos corriendo esto ANTES del
+-- insert de arriba (el orden importa por las FK de pedido_items):
+--   delete from pedido_items;
+--   delete from pedidos;
+--   delete from productos;

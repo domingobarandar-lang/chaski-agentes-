@@ -10,8 +10,8 @@ const TOOL_DEFINITIONS = [
     input_schema: {
       type: 'object',
       properties: {
-        consulta:  { type: 'string', description: 'Texto a buscar en nombre/descripción (ej: "arroz", "salmón", "comida perro")' },
-        categoria: { type: 'string', description: 'Filtro opcional por categoría (ej: "abarrotes", "mariscos", "mascotas")' },
+        consulta:  { type: 'string', description: 'Texto a buscar en nombre/descripción (ej: "almendras", "maní salado", "mix 500 g")' },
+        categoria: { type: 'string', description: 'Filtro opcional por categoría (ej: "frutos secos", "mix", "fruta deshidratada")' },
       },
     },
   },

@@ -1,9 +1,9 @@
 # Chaski Agentes
 
-Dos bots de WhatsApp/Telegram, demo/MVP, generados a partir de la misma base (contestador de Gesta):
+Dos bots de WhatsApp/Telegram, demo/MVP, generados a partir de la misma base (contestador de Gesta). Cada uno atiende como una **empresa ficticia** lista para mostrar en demos comerciales:
 
-- **`agente-citas/`** — reservas de horas (dentista, restaurante, servicios).
-- **`agente-retail/`** — catálogo, stock y pedidos (abarrotes, mariscos, pet shop).
+- **`agente-citas/`** — reservas de horas. Demo: **Clínica Dental Sonrisa del Valle** (catálogo de servicios dentales, horarios, dirección y equipo inventados).
+- **`agente-retail/`** — catálogo, stock y pedidos. Demo: **Frutos Secos La Cosecha** (maní, almendras, nueces, mix, fruta deshidratada; despacho y medios de pago inventados).
 
 Ambos comparten arquitectura: Express + webhook de WhatsApp Cloud API, bot de Telegram opcional, Supabase (o base en memoria si no hay credenciales), y el modelo **Claude vía la API de Anthropic** (`agent/llm.js`, cliente sobre el SDK oficial `@anthropic-ai/sdk`).
 

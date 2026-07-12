@@ -70,7 +70,7 @@ alter table catalogo       disable row level security;
 alter table horarios       disable row level security;
 alter table citas          disable row level security;
 
--- ─── Datos de ejemplo ────────────────────────────────────────────────────────
+-- ─── Datos de ejemplo (empresa FICTICIA: Clínica Dental Sonrisa del Valle) ───
 
 insert into horarios (dia_semana, abre, cierra) values
   (1, '09:00', '19:00'),
@@ -82,11 +82,18 @@ insert into horarios (dia_semana, abre, cierra) values
 on conflict (dia_semana) do nothing;
 
 insert into catalogo (nombre, descripcion, categoria, precio, duracion_minutos) values
-  ('Consulta general',       'Evaluación inicial con el profesional', 'consulta',    25000,  30),
-  ('Limpieza dental',        'Destartraje y profilaxis completa',     'dental',      45000,  60),
-  ('Blanqueamiento',         'Blanqueamiento dental en 1 sesión',     'dental',      120000, 90),
-  ('Mesa para 2 personas',   'Reserva de mesa estándar',              'restaurante', 0,      90),
-  ('Mesa para 4-6 personas', 'Reserva de mesa grande',                'restaurante', 0,      120);
+  ('Consulta general',         'Evaluación inicial con odontólogo general',             'consulta',     25000,  30),
+  ('Limpieza dental',          'Destartraje ultrasónico y profilaxis completa',         'higiene',      45000,  60),
+  ('Blanqueamiento',           'Blanqueamiento dental LED en 1 sesión',                 'estética',     120000, 90),
+  ('Urgencia dental',          'Atención de dolor agudo, fractura o trauma',            'urgencia',     35000,  45),
+  ('Extracción simple',        'Extracción de pieza dental con anestesia local',        'cirugía',      40000,  45),
+  ('Endodoncia',               'Tratamiento de conducto por pieza',                     'tratamiento',  180000, 90),
+  ('Evaluación de ortodoncia', 'Diagnóstico y plan de tratamiento con la ortodoncista', 'ortodoncia',   20000,  45),
+  ('Radiografía panorámica',   'Imagen panorámica digital, entrega inmediata',          'imagenología', 18000,  20);
+
+-- Si la base YA tenía el catálogo antiguo (mesas de restaurante, etc.),
+-- correr esto ANTES del insert de arriba:
+--   delete from catalogo;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- agente-retail
@@ -142,16 +149,22 @@ alter table productos       disable row level security;
 alter table pedidos         disable row level security;
 alter table pedido_items    disable row level security;
 
--- ─── Datos de ejemplo ────────────────────────────────────────────────────────
+-- ─── Datos de ejemplo (empresa FICTICIA: Frutos Secos La Cosecha) ────────────
 
 insert into productos (nombre, descripcion, categoria, precio, unidad, stock) values
-  ('Arroz grado 1 (1 kg)',        'Bolsa de arroz grano largo',          'abarrotes', 1890,  'un', 40),
-  ('Lentejas (1 kg)',             'Lentejas seleccionadas',              'abarrotes', 2490,  'un', 25),
-  ('Aceite vegetal (900 ml)',     'Aceite de maravilla',                 'abarrotes', 2990,  'un', 30),
-  ('Salmón fresco (kg)',          'Filete de salmón del día',            'mariscos',  12990, 'kg', 15),
-  ('Camarones ecuatorianos (kg)', 'Camarón 36/40 congelado',             'mariscos',  10990, 'kg', 20),
-  ('Choritos (malla 1 kg)',       'Choritos frescos de Chiloé',          'mariscos',  3490,  'un', 18),
-  ('Comida perro adulto (15 kg)', 'Saco de alimento premium para perro', 'mascotas',  34990, 'un', 12),
-  ('Comida gato (3 kg)',          'Alimento para gato adulto',           'mascotas',  12990, 'un', 22),
-  ('Arena sanitaria (10 L)',      'Arena aglomerante para gato',         'mascotas',  8990,  'un', 16),
-  ('Snacks para perro (paquete)', 'Galletas de entrenamiento',           'mascotas',  3990,  'un', 35);
+  ('Maní salado (kg)',                   'Maní tostado y salado, bien crocante',      'frutos secos',       4990,  'kg', 30),
+  ('Maní sin sal (kg)',                  'Maní tostado natural, sin sal',             'frutos secos',       4790,  'kg', 25),
+  ('Almendras (kg)',                     'Almendras naturales seleccionadas',         'frutos secos',       12990, 'kg', 15),
+  ('Nueces mariposa (kg)',               'Nuez chilena partida, extra clara',         'frutos secos',       14990, 'kg', 10),
+  ('Castañas de cajú (kg)',              'Cajú tostado, sin sal',                     'frutos secos',       11990, 'kg', 20),
+  ('Mix frutos secos (bolsa 500 g)',     'Mezcla de maní, almendras, nueces y pasas', 'mix',                6990,  'un', 18),
+  ('Pasas rubias (bolsa 500 g)',         'Pasas rubias jumbo, sin semilla',           'fruta deshidratada', 3490,  'un', 22),
+  ('Higos secos (bolsa 250 g)',          'Higos deshidratados premium',               'fruta deshidratada', 4290,  'un', 16),
+  ('Dátiles sin cuesco (caja 250 g)',    'Dátiles Medjool importados',                'fruta deshidratada', 5990,  'un', 14),
+  ('Mantequilla de maní (frasco 500 g)', '100% maní, sin azúcar añadida',             'despensa',           4990,  'un', 12);
+
+-- Si la base YA tenía el catálogo antiguo (abarrotes/mariscos/mascotas),
+-- correr esto ANTES del insert de arriba (el orden importa por las FK):
+--   delete from pedido_items;
+--   delete from pedidos;
+--   delete from productos;

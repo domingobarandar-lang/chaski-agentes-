@@ -31,15 +31,15 @@ const MODO_MOCK =
 const MAX_CHARS_TELEGRAM = 4096;
 
 const SALUDO =
-  '¡Hola! Soy tu asistente de reservas 😊 Puedo mostrarte el *catálogo de servicios* con sus precios, buscar *horas disponibles*, y *agendar* o *cancelar* una hora. ¿Qué te gustaría?';
+  '¡Hola! Soy el asistente de *Clínica Dental Sonrisa del Valle* 😊 Puedo mostrarte nuestros *servicios y precios*, buscar *horas disponibles*, y *agendar* o *cancelar* tu hora. ¿Qué necesitas?';
 
 const AYUDA =
   'Comandos disponibles:\n' +
   '/start — Ver el mensaje de bienvenida\n' +
   '/help — Ver esta ayuda\n\n' +
   'También puedes escribirme directamente, por ejemplo:\n' +
-  '- "¿Qué servicios tienen?"\n' +
-  '- "Quiero agendar una hora para el martes"\n' +
+  '- "¿Qué servicios tienen y cuánto cuestan?"\n' +
+  '- "Quiero una hora para limpieza dental el martes"\n' +
   '- "¿Tengo alguna hora agendada?"\n' +
   '- "Cancela mi hora"';
 

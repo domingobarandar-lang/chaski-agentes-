@@ -1,8 +1,8 @@
 # Agente de Citas — WhatsApp (demo/MVP)
 
-Chatbot de WhatsApp **genérico** para negocios que agendan horas: dentistas, restaurantes, peluquerías, consultas, etc. Basado en la estructura del contestador de Gesta, simplificado como producto de prueba.
+Chatbot de WhatsApp para negocios que agendan horas. En esta demo el bot atiende como **"Clínica Dental Sonrisa del Valle"**, una **empresa ficticia** con catálogo de servicios dentales, horarios y datos de contacto inventados — pensada para mostrar el producto a clientes potenciales (el mismo agente sirve para restaurantes, peluquerías, consultas, etc. cambiando catálogo y prompt).
 
-**Alcance limitado por diseño** (no habla en nombre de ninguna empresa):
+**Alcance limitado por diseño:**
 
 1. Mostrar el catálogo de servicios
 2. Consultar horas disponibles
@@ -29,7 +29,7 @@ agente-citas/
 │   └── bot.js             # Bot de Telegram (polling) — o modo mock sin token
 ├── agent/
 │   ├── core.js            # Loop agéntico: historial → Claude → tools → respuesta
-│   ├── prompts.js         # System prompt genérico (sin marca)
+│   ├── prompts.js         # System prompt de la clínica ficticia (datos demo)
 │   ├── tools.js           # ver_catalogo / consultar_disponibilidad / agendar_cita / cancelar_cita
 │   └── memory.js          # Historial por teléfono (ventana de 30 mensajes)
 ├── database/
@@ -47,13 +47,14 @@ copy .env.example .env      # y pegar tu ANTHROPIC_API_KEY
 npm run chat
 ```
 
-Sin credenciales de Supabase el agente usa una base **en memoria** con un catálogo demo (servicios dentales + mesas de restaurante) y horario L-V 09:00-19:00, sábado 10:00-14:00.
+Sin credenciales de Supabase el agente usa una base **en memoria** con el catálogo demo de la clínica ficticia (consulta, limpieza, blanqueamiento, urgencia, extracción, endodoncia, ortodoncia, radiografía) y horario L-V 09:00-19:00, sábado 10:00-14:00.
 
 Ejemplos para probar:
 
-- "Hola, ¿qué servicios tienen?"
+- "Hola, ¿qué servicios tienen y cuánto cuestan?"
 - "Quiero una hora para limpieza dental mañana"
 - "¿Qué horas tienen el viernes?"
+- "¿Dónde están ubicados? ¿Atienden con Fonasa?"
 - "Cancela mi hora"
 
 ## Conectar Supabase
@@ -93,8 +94,9 @@ Notas:
 
 Mientras `WHATSAPP_TOKEN` esté vacío, los mensajes salientes se imprimen por consola (modo demo).
 
-## Adaptarlo a un rubro
+## Adaptarlo a otro rubro o a un cliente real
 
+- **Nombre y datos del negocio**: `agent/prompts.js` (hoy trae los datos ficticios de la clínica demo).
 - **Catálogo y horarios**: tablas `catalogo` y `horarios` (o el seed en `database/supabase.js` para el modo memoria).
 - **Duración de bloques**: `SLOT_MINUTOS` en `.env` (default 60).
 - **Tono/reglas**: `agent/prompts.js`.
