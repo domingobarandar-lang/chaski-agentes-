@@ -88,7 +88,9 @@ const dbMemoria = {
 
 function crearDbSupabase() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-    realtime: { websocketImpl: ws },
+    // Node < 22 no trae WebSocket nativo; realtime-js espera la opción
+    // `transport` (websocketImpl no existe y se ignora silenciosamente).
+    realtime: { transport: ws },
   });
 
   return {
