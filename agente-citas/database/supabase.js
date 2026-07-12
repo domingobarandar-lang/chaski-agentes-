@@ -7,6 +7,7 @@
 // `citas_sesiones` para no chocar con la de agente-retail.
 
 const { createClient } = require('@supabase/supabase-js');
+const ws = require('ws');
 
 const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY;
 
@@ -86,7 +87,9 @@ const dbMemoria = {
 // ─── Implementación Supabase ─────────────────────────────────────────────────
 
 function crearDbSupabase() {
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    realtime: { websocketImpl: ws },
+  });
 
   return {
     supabase,
