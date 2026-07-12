@@ -1,3 +1,10 @@
+// Polyfill WebSocket para Node < 22 (Railway usa Node 18): debe ejecutarse
+// ANTES de cualquier require que cargue supabase-js (realtime-js exige un
+// WebSocket global nativo y crashea si no existe).
+if (!globalThis.WebSocket) {
+  globalThis.WebSocket = require('ws');
+}
+
 // Bot de Telegram del agente de retail — puente Telegram ↔ agent/core.js.
 //
 // Dos modos, según TELEGRAM_TOKEN_RETAIL en .env:

@@ -6,8 +6,16 @@
 // schema-compartido.sql). La tabla `sesiones` está prefijada como
 // `citas_sesiones` para no chocar con la de agente-retail.
 
-const { createClient } = require('@supabase/supabase-js');
+// Polyfill WebSocket para Node < 22 (Railway usa Node 18): realtime-js exige
+// un WebSocket global nativo. Debe parchearse ANTES de cargar supabase-js.
+// (Los entry points también lo hacen, pero se repite aquí por si este módulo
+// se carga desde otro punto de entrada — es idempotente.)
 const ws = require('ws');
+if (!globalThis.WebSocket) {
+  globalThis.WebSocket = ws;
+}
+
+const { createClient } = require('@supabase/supabase-js');
 
 const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY;
 
@@ -88,8 +96,8 @@ const dbMemoria = {
 
 function crearDbSupabase() {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
-    // Node < 22 no trae WebSocket nativo; realtime-js espera la opción
-    // `transport` (websocketImpl no existe y se ignora silenciosamente).
+    // Redundante con el polyfill global de arriba (que es el fix real en
+    // Node < 22); se mantiene como respaldo por si el global se pierde.
     realtime: { transport: ws },
   });
 
