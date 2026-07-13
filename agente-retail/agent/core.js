@@ -95,10 +95,10 @@ function processMessage(telefono, mensaje) {
 // "cancelé", "confirmado", "cambio hecho") — NO infinitivos de oferta
 // ("puedes cancelar cuando quieras"), que aparecen en turnos legítimos sin
 // herramientas. Un falso positivo residual solo cuesta una pasada extra.
-const PATRON_ACCION = /\b(registr|cancel|actualiz|anot|confirm|cambi)(é|amos|ad[oa]s?)\b|\bcambio (hecho|listo)\b/i;
+const PATRON_ACCION = /\b(registr|cancel|actualiz|anot|confirm|cambi)(é|amos|ad[oa]s?)\b|\bcambio (hecho|listo)\b|\b(contactar|responder|llamar|escribir)(á|án)\b|\bva(n)? a (contactar|responder|llamar|escribir)/i;
 
 const RECORDATORIO_VERIFICACION =
-  '[Verificación automática del sistema — el cliente NO ve este mensaje] En este turno NO ejecutaste ninguna herramienta, pero tu respuesta afirma una acción (registrar/cancelar/cambiar/anotar un pedido). Si estás confirmando una acción NUEVA de este turno, DEBES llamar la herramienta correspondiente AHORA (para un CAMBIO: cancelar_pedido y luego crear_pedido; recuerda que crear_pedido detecta duplicados y responde duplicado:true sin duplicar). Si tu respuesta solo recuerda algo que ya quedó hecho en un turno anterior, o explica que algo NO está hecho, repítela tal cual.';
+  '[Verificación automática del sistema — el cliente NO ve este mensaje] En este turno NO ejecutaste ninguna herramienta, pero tu respuesta afirma una acción o promesa (registrar/cancelar/cambiar/anotar un pedido/que la tienda contactará al cliente). Si estás confirmando una acción NUEVA de este turno, llama la herramienta correspondiente AHORA (para un CAMBIO: cancelar_pedido y luego crear_pedido; crear_pedido detecta duplicados y responde duplicado:true sin duplicar; una promesa de contacto requiere anotar_pendiente). IMPORTANTE: NO respondas a este recordatorio ni menciones verificaciones o herramientas — tu siguiente mensaje debe ser SOLO el texto final que verá el cliente. Si tu respuesta anterior solo recordaba algo ya hecho en un turno anterior, o explicaba que algo NO está hecho, reenvíala TAL CUAL, palabra por palabra.';
 
 /**
  * Una pasada modelo→tools→modelo. Muta `mensajes` (agrega los turnos de tool
