@@ -64,6 +64,25 @@ FORMATO WHATSAPP (no es Markdown):
  * @param {Object|null} perfil - Datos conocidos del cliente (capturados de
  *   pedidos creados con éxito en conversaciones anteriores).
  */
+// El modelo se equivoca calculando días de la semana de memoria (ej: promete
+// la entrega "el sábado 19" cuando el sábado es 18): se le entrega el mapeo
+// día→fecha ya resuelto.
+function calendarioProximosDias(dias = 7) {
+  const fmtDia = new Intl.DateTimeFormat('es-CL', {
+    timeZone: 'America/Santiago', weekday: 'long', day: 'numeric', month: 'long',
+  });
+  const fmtISO = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santiago', year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  const lineas = [];
+  for (let i = 0; i < dias; i++) {
+    const d = new Date(Date.now() + i * 86400000);
+    const etiqueta = i === 0 ? ' (HOY)' : i === 1 ? ' (MAÑANA)' : '';
+    lineas.push(`- ${fmtDia.format(d)}${etiqueta} = ${fmtISO.format(d)}`);
+  }
+  return lineas.join('\n');
+}
+
 function buildSystemPrompt(perfil) {
   const ahora = new Date().toLocaleString('es-CL', {
     timeZone: 'America/Santiago',
@@ -77,7 +96,7 @@ function buildSystemPrompt(perfil) {
     if (perfil.direccion) lineas.push(`- Dirección de despacho: ${perfil.direccion}.`);
     extra = `\n\nDATOS CONOCIDOS DEL CLIENTE (de pedidos anteriores con este mismo número):\n${lineas.join('\n')}\nÚsalos para reconocerlo (salúdalo por su nombre) y no pedirle de nuevo lo que ya sabes; si vas a crear un pedido con esos datos, confírmalos brevemente ("¿mismo nombre y dirección de la vez pasada?").`;
   }
-  return `${SYSTEM_PROMPT}${extra}\n\nFECHA Y HORA ACTUAL (Chile): ${ahora}.`;
+  return `${SYSTEM_PROMPT}${extra}\n\nFECHA Y HORA ACTUAL (Chile): ${ahora}.\n\nCALENDARIO DE LOS PRÓXIMOS 7 DÍAS (día de la semana = fecha real):\n${calendarioProximosDias()}\nUsa SIEMPRE esta tabla al mencionar días o fechas de entrega/retiro al cliente ("mañana", "el jueves", "el sábado"). NO calcules días de la semana de memoria.`;
 }
 
 module.exports = { SYSTEM_PROMPT, buildSystemPrompt };
