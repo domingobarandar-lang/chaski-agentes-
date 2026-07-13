@@ -90,7 +90,11 @@ function processMessage(telefono, mensaje) {
 // ninguna herramienta, se le devuelve un recordatorio para que la llame de
 // verdad o rectifique. Puede dar un falso positivo con frases como "aún NO
 // está agendada" — inofensivo: el modelo simplemente repite su respuesta.
-const PATRON_ACCION = /agendad|cancelad|reagendad|anotad|cambiad|cambio (hecho|listo)/i;
+// Solo formas de acción COMPLETADA ("agendé", "quedó agendada", "cancelé",
+// "confirmada", "cambio hecho") — NO infinitivos de oferta ("puedo agendarte
+// una hora"), que aparecen en turnos legítimos sin herramientas. Un falso
+// positivo residual solo cuesta una pasada extra inofensiva.
+const PATRON_ACCION = /\b(agend|cancel|reagend|anot|confirm|cambi)(é|amos|ad[oa]s?)\b|\bcambio (hecho|listo)\b/i;
 
 const RECORDATORIO_VERIFICACION =
   '[Verificación automática del sistema — el cliente NO ve este mensaje] En este turno NO ejecutaste ninguna herramienta, pero tu respuesta afirma una acción (agendar/cancelar/cambiar/anotar). Si estás confirmando una acción NUEVA de este turno, DEBES llamar la herramienta correspondiente AHORA (recuerda: agendar_cita es idempotente, si la cita ya existía responde ya_existia sin duplicar). Si tu respuesta solo recuerda algo que ya quedó hecho en un turno anterior, o explica que algo NO está hecho, repítela tal cual.';
@@ -150,6 +154,10 @@ const extraerTexto = (respuesta) => respuesta.content
   .join('\n')
   .trim();
 
+// WhatsApp/Telegram usan UN asterisco para negrita; el modelo a veces cae en
+// Markdown (**negrita**) pese al prompt y el cliente vería los ** literales.
+const normalizarFormato = (t) => t.replace(/\*\*(.+?)\*\*/g, '*$1*');
+
 /**
  * Loop agéntico completo: historial → Claude → tools → Claude → respuesta.
  */
@@ -182,7 +190,7 @@ async function procesarMensajeInterno(telefono, mensaje) {
     if (respuesta.stop_reason !== 'refusal') texto = extraerTexto(respuesta);
   }
 
-  texto = texto || FALLBACK_VACIO;
+  texto = normalizarFormato(texto) || FALLBACK_VACIO;
 
   // El historial persistido guarda solo texto plano (user/assistant); los
   // bloques de tool use viven solo dentro del turno.
