@@ -249,35 +249,33 @@ function crearDbSupabase() {
       return resultado;
     },
     productos: {
-      // Los tokens son alfanuméricos (tokenizar limpia todo lo demás), así que
-      // es seguro interpolarlos en los filtros .or() de PostgREST.
-      _condicionesToken(token) {
-        const variantes = [...new Set([token, singularizar(token)])];
-        return variantes
-          .flatMap((v) => [`nombre.ilike.%${v}%`, `descripcion.ilike.%${v}%`, `categoria.ilike.%${v}%`])
-          .join(',');
-      },
-      // Búsqueda estricta: cada token debe aparecer (un .or por token = AND).
-      async buscar(consulta, categoria) {
-        let query = supabase.from('productos').select('*').eq('activo', true).order('id');
-        for (const token of tokenizar(consulta ?? '')) {
-          query = query.or(this._condicionesToken(token));
-        }
-        if (categoria) query = query.ilike('categoria', `%${categoria}%`);
-        const { data, error } = await query;
-        if (error) throw new Error(`[DB] productos.buscar: ${error.message}`);
+      // Se trae el catálogo activo completo (tamaño demo: decenas de filas) y
+      // se filtra en JS con la MISMA lógica normalizada de la base en memoria.
+      // Antes se filtraba con .ilike() en Postgres, que es sensible a tildes:
+      // el token normalizado "caju" no matcheaba la columna "Castañas de cajú"
+      // y el bot respondía "no disponible" para productos que sí existen.
+      async _todosActivos() {
+        const { data, error } = await supabase
+          .from('productos').select('*').eq('activo', true).order('id');
+        if (error) throw new Error(`[DB] productos.listar: ${error.message}`);
         return data ?? [];
       },
-      // Búsqueda amplia: basta un token (todas las condiciones en un solo .or).
+      // Búsqueda estricta: TODOS los tokens de la consulta deben aparecer.
+      async buscar(consulta, categoria) {
+        const tokens = tokenizar(consulta ?? '');
+        const c = normalizar(categoria);
+        return (await this._todosActivos()).filter((p) =>
+          (!tokens.length || tokens.every((t) => tokenCoincide(textoProducto(p), t)))
+          && (!c || normalizar(p.categoria).includes(c)));
+      },
+      // Búsqueda amplia (similares): basta con que UN token coincida.
       async buscarAmplio(consulta, categoria) {
         const tokens = tokenizar(consulta ?? '');
         if (!tokens.length) return [];
-        let query = supabase.from('productos').select('*').eq('activo', true).order('id')
-          .or(tokens.map((t) => this._condicionesToken(t)).join(','));
-        if (categoria) query = query.ilike('categoria', `%${categoria}%`);
-        const { data, error } = await query;
-        if (error) throw new Error(`[DB] productos.buscarAmplio: ${error.message}`);
-        return data ?? [];
+        const c = normalizar(categoria);
+        return (await this._todosActivos()).filter((p) =>
+          tokens.some((t) => tokenCoincide(textoProducto(p), t))
+          && (!c || normalizar(p.categoria).includes(c)));
       },
       async buscarUno(nombre) {
         const candidatos = await this.buscar(nombre);

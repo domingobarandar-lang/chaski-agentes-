@@ -19,6 +19,10 @@ const { createClient } = require('@supabase/supabase-js');
 
 const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY;
 
+// Minúsculas y sin tildes, para que "estetica" encuentre "Estética"
+const normalizarTexto = (s) => String(s || '').toLowerCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g, '');
+
 // ─── Datos demo (fuente ÚNICA: base en memoria Y auto-siembra de Supabase) ───
 
 // Catálogo demo de la empresa FICTICIA "Clínica Dental Sonrisa del Valle"
@@ -81,8 +85,9 @@ const dbMemoria = {
   async autoSembrar() { return { sembrado: false, motivo: 'base en memoria: ya trae los datos demo' }; },
   catalogo: {
     async listar(categoria) {
+      const c = normalizarTexto(categoria);
       return memoria.catalogo.filter((s) => s.activo &&
-        (!categoria || (s.categoria || '').toLowerCase().includes(categoria.toLowerCase())));
+        (!c || normalizarTexto(s.categoria).includes(c)));
     },
   },
   horarios: {
@@ -189,12 +194,16 @@ function crearDbSupabase() {
       return resultado;
     },
     catalogo: {
+      // El filtro de categoría se aplica en JS con normalización de tildes:
+      // .ilike() en Postgres es sensible a acentos y "estetica"/"cirugia"
+      // (como las escribe el modelo) no matcheaban 'estética'/'cirugía'.
+      // El catálogo demo son pocas filas: traerlo completo es gratis.
       async listar(categoria) {
-        let query = supabase.from('catalogo').select('*').eq('activo', true).order('id');
-        if (categoria) query = query.ilike('categoria', `%${categoria}%`);
-        const { data, error } = await query;
+        const { data, error } = await supabase
+          .from('catalogo').select('*').eq('activo', true).order('id');
         if (error) throw new Error(`[DB] catalogo.listar: ${error.message}`);
-        return data ?? [];
+        const c = normalizarTexto(categoria);
+        return (data ?? []).filter((s) => !c || normalizarTexto(s.categoria).includes(c));
       },
     },
     horarios: {
