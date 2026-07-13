@@ -31,7 +31,9 @@ const MAX_RONDAS_TOOL = 6;    // límite de rondas de tool use (evita bucles)
 const REINTENTOS_API       = 2;
 const ESPERAS_REINTENTO_MS = [2000, 4000];
 
-const FALLBACK_VACIO = 'Perfecto, queda anotado. ¿Te ayudo con algo más? 😊';
+// Neutro a propósito: NO debe afirmar ninguna acción ("queda anotado" era
+// mentira cuando el modelo venía de solo consultar algo).
+const FALLBACK_VACIO = 'Perfecto 👍 ¿En qué más te ayudo?';
 const MENSAJE_ERROR  =
   'Estoy teniendo problemas técnicos momentáneos. Escríbeme de nuevo en unos segundos, por favor. 🔄';
 
@@ -82,22 +84,25 @@ function processMessage(telefono, mensaje) {
   return actual;
 }
 
+// Guarda anti-alucinación: el modelo a veces responde "quedó agendada" /
+// "cancelada" / "queda anotado" SIN haber llamado ninguna herramienta (cita
+// fantasma). Si la respuesta afirma una acción y en el turno no se ejecutó
+// ninguna herramienta, se le devuelve un recordatorio para que la llame de
+// verdad o rectifique. Puede dar un falso positivo con frases como "aún NO
+// está agendada" — inofensivo: el modelo simplemente repite su respuesta.
+const PATRON_ACCION = /agendad|cancelad|reagendad|anotad|cambiad|cambio (hecho|listo)/i;
+
+const RECORDATORIO_VERIFICACION =
+  '[Verificación automática del sistema — el cliente NO ve este mensaje] En este turno NO ejecutaste ninguna herramienta, pero tu respuesta afirma una acción (agendar/cancelar/cambiar/anotar). Si estás confirmando una acción NUEVA de este turno, DEBES llamar la herramienta correspondiente AHORA (recuerda: agendar_cita es idempotente, si la cita ya existía responde ya_existia sin duplicar). Si tu respuesta solo recuerda algo que ya quedó hecho en un turno anterior, o explica que algo NO está hecho, repítela tal cual.';
+
 /**
- * Loop agéntico completo: historial → Claude → tools → Claude → respuesta.
+ * Una pasada modelo→tools→modelo. Muta `mensajes` (agrega los turnos de tool
+ * use) y devuelve la respuesta final de la pasada + cuántas herramientas corrió.
  */
-async function procesarMensajeInterno(telefono, mensaje) {
-  const { historial, perfil } = await cargarSesion(telefono);
-  const mensajes  = [...historial, { role: 'user', content: mensaje }];
-
-  const paramsBase = {
-    model: MODELO,
-    max_tokens: MAX_TOKENS,
-    system: buildSystemPrompt(perfil),
-    tools: TOOL_DEFINITIONS,
-  };
-
+async function correrTurno(paramsBase, mensajes, telefono) {
   let respuesta = await crearMensajeClaude({ ...paramsBase, messages: mensajes });
   let rondas = 0;
+  let herramientas = 0;
 
   while (respuesta.stop_reason === 'tool_use' && rondas < MAX_RONDAS_TOOL) {
     // El contenido del assistant se pasa de vuelta TAL CUAL
@@ -106,9 +111,11 @@ async function procesarMensajeInterno(telefono, mensaje) {
     const resultados = [];
     for (const bloque of respuesta.content) {
       if (bloque.type !== 'tool_use') continue;
+      herramientas++;
       let resultado;
       let falloTecnico = false;
       try {
+        console.log(`[Tools] ${telefono} → ${bloque.name}(${JSON.stringify(bloque.input)})`);
         resultado = await ejecutarHerramienta(bloque.name, bloque.input, telefono);
       } catch (error) {
         console.error(`[Tools] ${bloque.name} falló:`, error.message);
@@ -134,6 +141,30 @@ async function procesarMensajeInterno(telefono, mensaje) {
     respuesta = await crearMensajeClaude({ ...paramsBase, messages: mensajes });
     rondas++;
   }
+  return { respuesta, herramientas };
+}
+
+const extraerTexto = (respuesta) => respuesta.content
+  .filter((b) => b.type === 'text')
+  .map((b) => b.text)
+  .join('\n')
+  .trim();
+
+/**
+ * Loop agéntico completo: historial → Claude → tools → Claude → respuesta.
+ */
+async function procesarMensajeInterno(telefono, mensaje) {
+  const { historial, perfil } = await cargarSesion(telefono);
+  const mensajes  = [...historial, { role: 'user', content: mensaje }];
+
+  const paramsBase = {
+    model: MODELO,
+    max_tokens: MAX_TOKENS,
+    system: buildSystemPrompt(perfil),
+    tools: TOOL_DEFINITIONS,
+  };
+
+  let { respuesta, herramientas } = await correrTurno(paramsBase, mensajes, telefono);
 
   // Rechazo de seguridad / filtro de contenido: content puede venir vacío y
   // leerlo directo rompería.
@@ -141,11 +172,17 @@ async function procesarMensajeInterno(telefono, mensaje) {
     return 'Sobre eso no te puedo ayudar. Puedo mostrarte el catálogo o agendarte una hora. 😊';
   }
 
-  const texto = respuesta.content
-    .filter((b) => b.type === 'text')
-    .map((b) => b.text)
-    .join('\n')
-    .trim() || FALLBACK_VACIO;
+  let texto = extraerTexto(respuesta);
+
+  if (!herramientas && PATRON_ACCION.test(texto)) {
+    console.warn('[Core] Respuesta afirma una acción sin herramientas ejecutadas: pasada de verificación');
+    mensajes.push({ role: 'assistant', content: respuesta.content });
+    mensajes.push({ role: 'user', content: RECORDATORIO_VERIFICACION });
+    ({ respuesta } = await correrTurno(paramsBase, mensajes, telefono));
+    if (respuesta.stop_reason !== 'refusal') texto = extraerTexto(respuesta);
+  }
+
+  texto = texto || FALLBACK_VACIO;
 
   // El historial persistido guarda solo texto plano (user/assistant); los
   // bloques de tool use viven solo dentro del turno.

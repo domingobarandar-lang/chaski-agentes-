@@ -204,6 +204,20 @@ async function agendarCita({ nombre, servicio, fecha, hora, personas, notas }, t
   if (disponibilidad.disponible === false) return disponibilidad;
   const horaNorm = normalizarHora(hora);
   if (!disponibilidad.horas_disponibles.includes(horaNorm)) {
+    // ¿La hora la ocupa una cita de ESTE MISMO cliente? Entonces el modelo
+    // volvió a llamar tras una confirmación repetida ("sí", "confirmo"):
+    // respuesta idempotente, no un rechazo (evita el falso "ya no está
+    // disponible" y también la cita duplicada).
+    const propias = await db.citas.proximasPorTelefono(telefono, fecha);
+    const yaExiste = propias.find((c) => c.fecha === fecha && normalizarHora(c.hora) === horaNorm);
+    if (yaExiste) {
+      return {
+        agendada: true,
+        ya_existia: true,
+        cita: { id: yaExiste.id, nombre: yaExiste.nombre_cliente ?? nombre, servicio: yaExiste.servicio, fecha, hora: horaNorm },
+        mensaje: 'Esta cita YA estaba agendada para este mismo cliente (no se creó una nueva). Dile que su hora está lista.',
+      };
+    }
     return {
       agendada: false,
       motivo: `La hora ${horaNorm} no está disponible el ${fecha}.`,
