@@ -8,8 +8,11 @@ Chatbot de WhatsApp para comercios al por menor. En esta demo el bot atiende com
 2. Consultar stock y precios
 3. Tomar pedidos (descuenta stock)
 4. Informar el estado del último pedido
+5. Cancelar el último pedido y dejar pendientes anotados para la tienda (`anotar_pendiente`)
 
-Cualquier otra petición la rechaza amablemente.
+Cualquier otra petición la deriva amablemente (queda `[Pendiente] ...` en los logs).
+
+**Experiencia del cliente:** botones en Telegram (`/start` + contextuales, ver `telegram/botones.js`), memoria con respaldo en proceso (si Supabase falla, la conversación no pierde el hilo), perfil recordado entre conversaciones (nombre y dirección de pedidos exitosos) y protocolo honesto ante fallas técnicas (nunca "no tenemos X" por un error de conexión, nunca pedidos "confirmados" que no se crearon).
 
 ## Stack
 
@@ -60,9 +63,10 @@ Ejemplos para probar:
 ## Conectar Supabase
 
 1. Crear un proyecto en Supabase.
-2. Ejecutar `database/schema.sql` en el **SQL Editor** (crea tablas + productos demo).
-3. En `.env`: `SUPABASE_URL` y `SUPABASE_KEY` con la clave **service_role** (⚠️ la clave `anon` da *permission denied*).
-4. Cargar los productos reales del comercio en la tabla `productos` (y ajustar el nombre/datos del negocio en `agent/prompts.js`).
+2. Ejecutar `database/schema.sql` en el **SQL Editor** (crea tablas + productos demo). Si el proyecto se comparte con `agente-citas`, usar mejor `schema-compartido.sql` (raíz del repo).
+3. En `.env`: `SUPABASE_URL` y `SUPABASE_ANON_KEY` (⚠️ ese es el nombre que lee el código). Las tablas quedan sin RLS, así que la clave `anon` funciona.
+4. Verificar con `npm run diagnostico`: dice tabla por tabla qué existe, si el catálogo está actualizado y qué SQL correr si falta algo. El bot también lo reporta en los logs al arrancar y **auto-siembra** los productos demo si la tabla está vacía.
+5. Cargar los productos reales del comercio en la tabla `productos` (y ajustar el nombre/datos del negocio en `agent/prompts.js`).
 
 ## Conectar Telegram (gratis — ideal para demos)
 

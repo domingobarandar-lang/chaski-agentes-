@@ -8,8 +8,11 @@ Chatbot de WhatsApp para negocios que agendan horas. En esta demo el bot atiende
 2. Consultar horas disponibles
 3. Agendar una hora
 4. Cancelar una hora
+5. Dejar pendientes anotados para recepción (`anotar_pendiente`)
 
-Cualquier otra petición la rechaza amablemente.
+Cualquier otra petición la deriva amablemente (queda `[Pendiente] ...` en los logs).
+
+**Experiencia del cliente:** botones en Telegram (`/start` + contextuales, ver `telegram/botones.js`), memoria con respaldo en proceso (si Supabase falla, la conversación no pierde el hilo), perfil recordado entre conversaciones (el nombre de quien agendó con éxito) y protocolo honesto ante fallas técnicas (nunca "no hay horas" por un error de conexión, nunca citas "confirmadas" que no se agendaron).
 
 ## Stack
 
@@ -60,9 +63,10 @@ Ejemplos para probar:
 ## Conectar Supabase
 
 1. Crear un proyecto en Supabase.
-2. Ejecutar `database/schema.sql` en el **SQL Editor** (crea tablas + datos demo).
-3. En `.env`: `SUPABASE_URL` y `SUPABASE_KEY` con la clave **service_role** (⚠️ la clave `anon` da *permission denied*).
-4. Editar el catálogo y los horarios directamente en las tablas `catalogo` y `horarios` según el negocio.
+2. Ejecutar `database/schema.sql` en el **SQL Editor** (crea tablas + datos demo). Si el proyecto se comparte con `agente-retail`, usar mejor `schema-compartido.sql` (raíz del repo).
+3. En `.env`: `SUPABASE_URL` y `SUPABASE_ANON_KEY` (⚠️ ese es el nombre que lee el código). Las tablas quedan sin RLS, así que la clave `anon` funciona.
+4. Verificar con `npm run diagnostico`: dice tabla por tabla qué existe, si el catálogo está actualizado y qué SQL correr si falta algo. El bot también lo reporta en los logs al arrancar y **auto-siembra** el catálogo demo si la tabla está vacía.
+5. Editar el catálogo y los horarios directamente en las tablas `catalogo` y `horarios` según el negocio.
 
 ## Conectar Telegram (gratis — ideal para demos)
 

@@ -1,13 +1,23 @@
 -- Schema del agente de retail — ejecutar en Supabase SQL Editor.
--- NOTA: el bot debe usar la clave service_role (la anon da "permission denied"
--- en tablas con RLS). Como alternativa para la demo, se deshabilita RLS abajo.
+-- ⚠️ Si el proyecto Supabase es COMPARTIDO con agente-citas, usar mejor
+-- schema-compartido.sql (raíz del repo), que crea las tablas de ambos.
+-- Las tablas quedan con RLS deshabilitado (demo), así que la clave anon
+-- (SUPABASE_ANON_KEY) funciona sin "permission denied".
 
--- Historial de conversación por cliente (una fila por teléfono)
-create table if not exists sesiones (
+-- Historial de conversación por cliente (una fila por teléfono).
+-- OJO: el código lee `retail_sesiones` (prefijada para no chocar con la tabla
+-- de agente-citas en un proyecto compartido).
+-- `perfil`: datos conocidos del cliente (nombre, dirección) capturados de
+-- pedidos creados con éxito — el bot lo reconoce en su siguiente conversación.
+create table if not exists retail_sesiones (
   telefono   text primary key,
   messages   jsonb not null default '[]'::jsonb,
+  perfil     jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- Migración para bases creadas con el schema anterior (sin la columna perfil):
+alter table retail_sesiones add column if not exists perfil jsonb;
 
 -- Catálogo de productos con stock
 create table if not exists productos (
@@ -46,11 +56,18 @@ create table if not exists pedido_items (
 create index if not exists idx_pedidos_telefono on pedidos (telefono_cliente);
 create index if not exists idx_items_pedido     on pedido_items (pedido_id);
 
--- Demo: sin RLS (el acceso es solo desde el backend con service_role).
-alter table sesiones     disable row level security;
-alter table productos    disable row level security;
-alter table pedidos      disable row level security;
-alter table pedido_items disable row level security;
+-- Demo: sin RLS (el acceso es solo desde el backend con la clave anon).
+alter table retail_sesiones disable row level security;
+alter table productos       disable row level security;
+alter table pedidos         disable row level security;
+alter table pedido_items    disable row level security;
+
+-- Si la base venía del schema ANTIGUO que creaba la tabla `sesiones` sin
+-- prefijo (el código no la lee), migrar el historial y eliminarla:
+--   insert into retail_sesiones (telefono, messages, updated_at)
+--     select telefono, messages, updated_at from sesiones
+--     on conflict (telefono) do nothing;
+--   drop table sesiones;
 
 -- ─── Datos de ejemplo (empresa FICTICIA: Frutos Secos La Cosecha) ────────────
 

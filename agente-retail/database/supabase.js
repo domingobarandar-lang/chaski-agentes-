@@ -39,7 +39,7 @@ const productosDemo = () => [
 ];
 
 const memoria = {
-  sesiones: new Map(), // telefono → messages[]
+  sesiones: new Map(), // telefono → { messages, perfil }
   productos: productosDemo(),
   pedidos: [],       // { id, telefono_cliente, ..., items: [...] }
   proximoIdPedido: 1,
@@ -106,11 +106,20 @@ const dbMemoria = {
   },
   sesiones: {
     async get(telefono) {
-      const messages = memoria.sesiones.get(telefono);
-      return messages ? { messages } : null;
+      const sesion = memoria.sesiones.get(telefono);
+      return sesion ? { messages: sesion.messages, perfil: sesion.perfil ?? null } : null;
     },
-    async upsert(telefono, messages) { memoria.sesiones.set(telefono, messages); },
+    async upsert(telefono, messages) {
+      const previa = memoria.sesiones.get(telefono);
+      memoria.sesiones.set(telefono, { messages, perfil: previa?.perfil ?? null });
+    },
+    async actualizarPerfil(telefono, perfil) {
+      const previa = memoria.sesiones.get(telefono);
+      memoria.sesiones.set(telefono, { messages: previa?.messages ?? [], perfil });
+    },
   },
+  async chequearSalud() { return [{ tabla: 'memoria (demo)', ok: true }]; },
+  async autoSembrar() { return { sembrado: false, motivo: 'base en memoria: ya trae los datos demo' }; },
   productos: {
     // Búsqueda estricta: TODOS los tokens de la consulta deben aparecer.
     async buscar(consulta, categoria) {
@@ -183,9 +192,11 @@ function crearDbSupabase() {
     },
     sesiones: {
       async get(telefono) {
+        // select('*') y no columnas explícitas: si la base aún no tiene la
+        // columna `perfil` (schema antiguo), el historial sigue funcionando.
         const { data, error } = await supabase
           .from('retail_sesiones')
-          .select('messages')
+          .select('*')
           .eq('telefono', telefono)
           .single();
         if (error) {
@@ -195,11 +206,47 @@ function crearDbSupabase() {
         return data;
       },
       async upsert(telefono, messages) {
+        // Solo messages/updated_at: en UPDATE no toca la columna perfil.
         const { error } = await supabase
           .from('retail_sesiones')
           .upsert({ telefono, messages, updated_at: new Date().toISOString() }, { onConflict: 'telefono' });
         if (error) throw new Error(`[DB] sesiones.upsert: ${error.message}`);
       },
+      async actualizarPerfil(telefono, perfil) {
+        const { error } = await supabase
+          .from('retail_sesiones')
+          .upsert({ telefono, perfil, updated_at: new Date().toISOString() }, { onConflict: 'telefono' });
+        if (error) throw new Error(`[DB] sesiones.actualizarPerfil: ${error.message}`);
+      },
+    },
+    // Estado de cada tabla que el agente necesita. Nunca lanza: devuelve el
+    // detalle para que el arranque y scripts/diagnostico-db.js lo reporten.
+    async chequearSalud() {
+      const estados = [];
+      for (const tabla of ['retail_sesiones', 'productos', 'pedidos', 'pedido_items']) {
+        const { count, error } = await supabase.from(tabla).select('*', { count: 'exact', head: true });
+        estados.push(error ? { tabla, ok: false, error: error.message } : { tabla, ok: true, filas: count ?? 0 });
+      }
+      // Columna perfil (memoria entre conversaciones): puede faltar en bases
+      // creadas con el schema antiguo.
+      const { error: errPerfil } = await supabase.from('retail_sesiones').select('perfil').limit(1);
+      estados.push(errPerfil
+        ? { tabla: 'retail_sesiones.perfil', ok: false, error: errPerfil.message }
+        : { tabla: 'retail_sesiones.perfil', ok: true });
+      return estados;
+    },
+    // Si la tabla de productos existe pero está VACÍA, siembra los datos demo
+    // (INSERT solamente — crear tablas requiere el SQL Editor de Supabase).
+    async autoSembrar() {
+      const resultado = { productos: 'sin cambios' };
+      const { count, error } = await supabase.from('productos').select('*', { count: 'exact', head: true });
+      if (!error && (count ?? 0) === 0) {
+        // Sin id (columna identity) ni activo (default true en el schema)
+        const filas = productosDemo().map(({ id, activo, ...p }) => p);
+        const { error: errInsert } = await supabase.from('productos').insert(filas);
+        resultado.productos = errInsert ? `error: ${errInsert.message}` : `sembrado (${filas.length} productos demo)`;
+      }
+      return resultado;
     },
     productos: {
       // Los tokens son alfanuméricos (tokenizar limpia todo lo demás), así que
@@ -289,4 +336,46 @@ function crearDbSupabase() {
 
 const db = usandoMemoria ? dbMemoria : crearDbSupabase();
 
-module.exports = { db, usandoMemoria, normalizar };
+/**
+ * Reporte de salud para el arranque (telegram/bot.js, index.js) y para
+ * scripts/diagnostico-db.js. Loguea el estado de cada tabla, auto-siembra el
+ * catálogo vacío y deja instrucciones claras si algo falta. Nunca lanza.
+ */
+async function reportarSalud() {
+  if (usandoMemoria) {
+    console.log('[DB] Base EN MEMORIA (demo): productos ficticios ya cargados. Nada persiste entre reinicios.');
+    return { memoria: true, ok: true };
+  }
+  let estados;
+  try {
+    estados = await db.chequearSalud();
+  } catch (error) {
+    console.error(`[DB] ⚠️ No se pudo consultar Supabase: ${error.message}`);
+    console.error('[DB] ⚠️ Revisa SUPABASE_URL / SUPABASE_ANON_KEY. El bot seguirá con memoria de respaldo en proceso.');
+    return { memoria: false, ok: false, error: error.message };
+  }
+  let ok = true;
+  for (const e of estados) {
+    if (e.ok) {
+      console.log(`[DB] ✓ ${e.tabla}${e.filas != null ? ` (${e.filas} filas)` : ''}`);
+    } else {
+      ok = false;
+      console.error(`[DB] ⚠️ ${e.tabla}: ${e.error}`);
+    }
+  }
+  if (!ok) {
+    console.error('[DB] ⚠️ Faltan tablas o columnas: corre schema-compartido.sql (raíz del repo) en el SQL Editor de Supabase.');
+    console.error('[DB] ⚠️ Diagnóstico detallado: node scripts/diagnostico-db.js');
+  }
+  try {
+    const siembra = await db.autoSembrar();
+    for (const [tabla, estado] of Object.entries(siembra)) {
+      if (estado !== 'sin cambios') console.log(`[DB] Auto-siembra ${tabla}: ${estado}`);
+    }
+  } catch (error) {
+    console.warn(`[DB] Auto-siembra falló: ${error.message}`);
+  }
+  return { memoria: false, ok, estados };
+}
+
+module.exports = { db, usandoMemoria, normalizar, reportarSalud, productosDemo };

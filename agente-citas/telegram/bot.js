@@ -45,6 +45,8 @@ const AYUDA =
 
 const SOLO_TEXTO = 'Solo puedo responder mensajes de texto 😊';
 
+const { TECLADO_INICIO, FRASES_BOTONES, botonesParaRespuesta } = require('./botones');
+
 // ─── Envío con límite de largo y fallback de formato ─────────────────────────
 
 function dividirMensaje(texto) {
@@ -64,12 +66,15 @@ function dividirMensaje(texto) {
 
 // Telegram rechaza el mensaje completo si el Markdown viene mal balanceado
 // (ej: un solo "*"). Si el parseo falla, se reenvía como texto plano.
-async function enviarTelegram(bot, chatId, texto) {
-  for (const parte of dividirMensaje(texto)) {
+// `teclado` (opcional): inline keyboard que se adjunta a la ÚLTIMA parte.
+async function enviarTelegram(bot, chatId, texto, teclado) {
+  const partes = dividirMensaje(texto);
+  for (let i = 0; i < partes.length; i++) {
+    const opciones = teclado && i === partes.length - 1 ? { reply_markup: teclado } : {};
     try {
-      await bot.sendMessage(chatId, parte, { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, partes[i], { parse_mode: 'Markdown', ...opciones });
     } catch {
-      await bot.sendMessage(chatId, parte);
+      await bot.sendMessage(chatId, partes[i], opciones);
     }
   }
 }
@@ -89,7 +94,7 @@ function arrancarBotReal() {
 
   const { TelegramBot } = require('node-telegram-bot-api');
   const { processMessage, MENSAJE_ERROR } = require('../agent/core');
-  const { usandoMemoria } = require('../database/supabase');
+  const { usandoMemoria, reportarSalud } = require('../database/supabase');
 
   const bot = new TelegramBot(process.env.TELEGRAM_TOKEN_CITAS, { polling: true });
 
@@ -106,11 +111,11 @@ function arrancarBotReal() {
       return;
     }
     if (texto === '/start') {
-      await enviarTelegram(bot, chatId, SALUDO);
+      await enviarTelegram(bot, chatId, SALUDO, TECLADO_INICIO);
       return;
     }
     if (texto === '/help') {
-      await enviarTelegram(bot, chatId, AYUDA);
+      await enviarTelegram(bot, chatId, AYUDA, TECLADO_INICIO);
       return;
     }
 
@@ -118,10 +123,34 @@ function arrancarBotReal() {
     try {
       await bot.sendChatAction(chatId, 'typing').catch(() => {});
       const respuesta = await processMessage(idConversacion(chatId), texto);
-      await enviarTelegram(bot, chatId, respuesta);
+      await enviarTelegram(bot, chatId, respuesta, botonesParaRespuesta(respuesta));
       console.log(`[Telegram → ${chatId}] ${respuesta}`);
     } catch (error) {
       console.error('[Telegram] Error procesando mensaje:', error.message);
+      await bot.sendMessage(chatId, MENSAJE_ERROR).catch(() => {});
+    }
+  });
+
+  // Botones inline: cada botón se traduce a su frase natural y entra por el
+  // MISMO loop del agente que un mensaje escrito (cero lógica duplicada).
+  bot.on('callback_query', async (query) => {
+    const chatId = query.message?.chat?.id;
+    await bot.answerCallbackQuery(query.id).catch(() => {});
+    if (!chatId) return;
+    if (query.data === 'menu') {
+      await enviarTelegram(bot, chatId, SALUDO, TECLADO_INICIO);
+      return;
+    }
+    const frase = FRASES_BOTONES[query.data];
+    if (!frase) return;
+    console.log(`[Telegram ← ${chatId}] (botón) ${frase}`);
+    try {
+      await bot.sendChatAction(chatId, 'typing').catch(() => {});
+      const respuesta = await processMessage(idConversacion(chatId), frase);
+      await enviarTelegram(bot, chatId, respuesta, botonesParaRespuesta(respuesta));
+      console.log(`[Telegram → ${chatId}] ${respuesta}`);
+    } catch (error) {
+      console.error('[Telegram] Error procesando botón:', error.message);
       await bot.sendMessage(chatId, MENSAJE_ERROR).catch(() => {});
     }
   });
@@ -131,16 +160,35 @@ function arrancarBotReal() {
   console.log(`[Telegram] DB: ${usandoMemoria ? 'en memoria (demo)' : 'Supabase'}`);
   console.log('[Telegram] Escríbele a tu bot en Telegram para probar. Ctrl+C para salir.');
   console.log('─'.repeat(60));
+
+  // Salud de la base al arrancar: si a Supabase le faltan tablas/datos, queda
+  // GRITADO en los logs de Railway con la instrucción exacta (y se auto-siembra
+  // el catálogo si la tabla existe vacía).
+  reportarSalud().catch((e) => console.warn('[DB] Chequeo de salud falló:', e.message));
 }
 
 // ─── Modo mock: sin Telegram y SIN API de Anthropic ───────────────────────────
 // Inyecta un doble de pruebas del SDK vía core._setClienteParaTests (el mismo
 // mecanismo de scripts/test-chat.js): ninguna llamada sale a la red.
 
+// Chequeo estático de los botones (sin Telegram): cada botón del teclado de
+// inicio tiene su frase, y los botones contextuales siempre ofrecen Menú.
+function verificarBotones() {
+  const datos = TECLADO_INICIO.inline_keyboard.flat().map((b) => b.callback_data);
+  const sinFrase = datos.filter((d) => d !== 'menu' && !FRASES_BOTONES[d]);
+  if (sinFrase.length) throw new Error(`Botones sin frase asociada: ${sinFrase.join(', ')}`);
+  const teclado = botonesParaRespuesta('respuesta cualquiera');
+  if (!teclado.inline_keyboard.flat().some((b) => b.callback_data === 'menu')) {
+    throw new Error('botonesParaRespuesta no incluye el botón Menú');
+  }
+  console.log('✓ Botones de Telegram: teclado de inicio y botones contextuales OK');
+}
+
 function arrancarModoMock() {
+  verificarBotones();
   // El mock corre siempre contra la base EN MEMORIA (no ensuciar Supabase real)
   delete process.env.SUPABASE_URL;
-  delete process.env.SUPABASE_KEY;
+  delete process.env.SUPABASE_ANON_KEY;
 
   const mockState = { pasos: [], log: [], contadorId: 0 };
 

@@ -6,7 +6,7 @@
 const { crearClienteAnthropic } = require('./llm');
 const { buildSystemPrompt } = require('./prompts');
 const { TOOL_DEFINITIONS, ejecutarHerramienta } = require('./tools');
-const { cargarHistorial, persistirInteraccion } = require('./memory');
+const { cargarSesion, persistirInteraccion } = require('./memory');
 
 // Cliente perezoso: sin ANTHROPIC_API_KEY el constructor lanza error, y este
 // módulo también se carga desde los simuladores locales (chat / tests /
@@ -86,13 +86,13 @@ function processMessage(telefono, mensaje) {
  * Loop agéntico completo: historial → Claude → tools → Claude → respuesta.
  */
 async function procesarMensajeInterno(telefono, mensaje) {
-  const historial = await cargarHistorial(telefono);
+  const { historial, perfil } = await cargarSesion(telefono);
   const mensajes  = [...historial, { role: 'user', content: mensaje }];
 
   const paramsBase = {
     model: MODELO,
     max_tokens: MAX_TOKENS,
-    system: buildSystemPrompt(),
+    system: buildSystemPrompt(perfil),
     tools: TOOL_DEFINITIONS,
   };
 
@@ -107,16 +107,25 @@ async function procesarMensajeInterno(telefono, mensaje) {
     for (const bloque of respuesta.content) {
       if (bloque.type !== 'tool_use') continue;
       let resultado;
+      let falloTecnico = false;
       try {
         resultado = await ejecutarHerramienta(bloque.name, bloque.input, telefono);
       } catch (error) {
         console.error(`[Tools] ${bloque.name} falló:`, error.message);
-        resultado = { error: `La herramienta falló: ${error.message}` };
+        falloTecnico = true;
+        // Tipado para que el prompt lo distinga de un resultado vacío: una
+        // falla técnica NUNCA debe convertirse en "no tenemos eso".
+        resultado = {
+          error_tecnico: true,
+          detalle: error.message,
+          instruccion: 'La consulta falló por un problema técnico momentáneo — NO significa que no haya datos. Dile al cliente que tuviste un problema técnico, no afirmes que un producto no existe o no hay stock, no confirmes pedidos que no se crearon, y ofrece reintentar o dejarlo anotado con anotar_pendiente.',
+        };
       }
       resultados.push({
         type: 'tool_result',
         tool_use_id: bloque.id,
         content: JSON.stringify(resultado),
+        ...(falloTecnico ? { is_error: true } : {}),
       });
     }
     // Todos los tool_result van en UN solo mensaje user

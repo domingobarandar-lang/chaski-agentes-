@@ -19,31 +19,37 @@ const { createClient } = require('@supabase/supabase-js');
 
 const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY;
 
-// ─── Implementación en memoria (modo demo) ───────────────────────────────────
+// ─── Datos demo (fuente ÚNICA: base en memoria Y auto-siembra de Supabase) ───
 
 // Catálogo demo de la empresa FICTICIA "Clínica Dental Sonrisa del Valle"
 // (los nombres y precios de los 3 primeros servicios los usa la suite de tests).
+const CATALOGO_DEMO = [
+  { nombre: 'Consulta general',         descripcion: 'Evaluación inicial con odontólogo general',            categoria: 'consulta',     precio: 25000,  duracion_minutos: 30 },
+  { nombre: 'Limpieza dental',          descripcion: 'Destartraje ultrasónico y profilaxis completa',        categoria: 'higiene',      precio: 45000,  duracion_minutos: 60 },
+  { nombre: 'Blanqueamiento',           descripcion: 'Blanqueamiento dental LED en 1 sesión',                categoria: 'estética',     precio: 120000, duracion_minutos: 90 },
+  { nombre: 'Urgencia dental',          descripcion: 'Atención de dolor agudo, fractura o trauma',           categoria: 'urgencia',     precio: 35000,  duracion_minutos: 45 },
+  { nombre: 'Extracción simple',        descripcion: 'Extracción de pieza dental con anestesia local',       categoria: 'cirugía',      precio: 40000,  duracion_minutos: 45 },
+  { nombre: 'Endodoncia',               descripcion: 'Tratamiento de conducto por pieza',                    categoria: 'tratamiento',  precio: 180000, duracion_minutos: 90 },
+  { nombre: 'Evaluación de ortodoncia', descripcion: 'Diagnóstico y plan de tratamiento con la ortodoncista', categoria: 'ortodoncia',  precio: 20000,  duracion_minutos: 45 },
+  { nombre: 'Radiografía panorámica',   descripcion: 'Imagen panorámica digital, entrega inmediata',         categoria: 'imagenología', precio: 18000,  duracion_minutos: 20 },
+];
+
+// 0=domingo ... 6=sábado (domingo cerrado)
+const HORARIOS_DEMO = [
+  { dia_semana: 1, abre: '09:00', cierra: '19:00' },
+  { dia_semana: 2, abre: '09:00', cierra: '19:00' },
+  { dia_semana: 3, abre: '09:00', cierra: '19:00' },
+  { dia_semana: 4, abre: '09:00', cierra: '19:00' },
+  { dia_semana: 5, abre: '09:00', cierra: '19:00' },
+  { dia_semana: 6, abre: '10:00', cierra: '14:00' },
+];
+
+// ─── Implementación en memoria (modo demo) ───────────────────────────────────
+
 const memoria = {
-  sesiones: new Map(), // telefono → messages[]
-  catalogo: [
-    { id: 1, nombre: 'Consulta general',         descripcion: 'Evaluación inicial con odontólogo general',            categoria: 'consulta',     precio: 25000,  duracion_minutos: 30, activo: true },
-    { id: 2, nombre: 'Limpieza dental',          descripcion: 'Destartraje ultrasónico y profilaxis completa',        categoria: 'higiene',      precio: 45000,  duracion_minutos: 60, activo: true },
-    { id: 3, nombre: 'Blanqueamiento',           descripcion: 'Blanqueamiento dental LED en 1 sesión',                categoria: 'estética',     precio: 120000, duracion_minutos: 90, activo: true },
-    { id: 4, nombre: 'Urgencia dental',          descripcion: 'Atención de dolor agudo, fractura o trauma',           categoria: 'urgencia',     precio: 35000,  duracion_minutos: 45, activo: true },
-    { id: 5, nombre: 'Extracción simple',        descripcion: 'Extracción de pieza dental con anestesia local',       categoria: 'cirugía',      precio: 40000,  duracion_minutos: 45, activo: true },
-    { id: 6, nombre: 'Endodoncia',               descripcion: 'Tratamiento de conducto por pieza',                    categoria: 'tratamiento',  precio: 180000, duracion_minutos: 90, activo: true },
-    { id: 7, nombre: 'Evaluación de ortodoncia', descripcion: 'Diagnóstico y plan de tratamiento con la ortodoncista', categoria: 'ortodoncia',  precio: 20000,  duracion_minutos: 45, activo: true },
-    { id: 8, nombre: 'Radiografía panorámica',   descripcion: 'Imagen panorámica digital, entrega inmediata',         categoria: 'imagenología', precio: 18000,  duracion_minutos: 20, activo: true },
-  ],
-  // 0=domingo ... 6=sábado (domingo cerrado)
-  horarios: new Map([
-    [1, { abre: '09:00', cierra: '19:00' }],
-    [2, { abre: '09:00', cierra: '19:00' }],
-    [3, { abre: '09:00', cierra: '19:00' }],
-    [4, { abre: '09:00', cierra: '19:00' }],
-    [5, { abre: '09:00', cierra: '19:00' }],
-    [6, { abre: '10:00', cierra: '14:00' }],
-  ]),
+  sesiones: new Map(), // telefono → { messages, perfil }
+  catalogo: CATALOGO_DEMO.map((s, i) => ({ id: i + 1, activo: true, ...s })),
+  horarios: new Map(HORARIOS_DEMO.map((h) => [h.dia_semana, { abre: h.abre, cierra: h.cierra }])),
   citas: [],
   proximoIdCita: 1,
 };
@@ -59,11 +65,20 @@ const dbMemoria = {
   },
   sesiones: {
     async get(telefono) {
-      const messages = memoria.sesiones.get(telefono);
-      return messages ? { messages } : null;
+      const sesion = memoria.sesiones.get(telefono);
+      return sesion ? { messages: sesion.messages, perfil: sesion.perfil ?? null } : null;
     },
-    async upsert(telefono, messages) { memoria.sesiones.set(telefono, messages); },
+    async upsert(telefono, messages) {
+      const previa = memoria.sesiones.get(telefono);
+      memoria.sesiones.set(telefono, { messages, perfil: previa?.perfil ?? null });
+    },
+    async actualizarPerfil(telefono, perfil) {
+      const previa = memoria.sesiones.get(telefono);
+      memoria.sesiones.set(telefono, { messages: previa?.messages ?? [], perfil });
+    },
   },
+  async chequearSalud() { return [{ tabla: 'memoria (demo)', ok: true }]; },
+  async autoSembrar() { return { sembrado: false, motivo: 'base en memoria: ya trae los datos demo' }; },
   catalogo: {
     async listar(categoria) {
       return memoria.catalogo.filter((s) => s.activo &&
@@ -114,9 +129,11 @@ function crearDbSupabase() {
     },
     sesiones: {
       async get(telefono) {
+        // select('*') y no columnas explícitas: si la base aún no tiene la
+        // columna `perfil` (schema antiguo), el historial sigue funcionando.
         const { data, error } = await supabase
           .from('citas_sesiones')
-          .select('messages')
+          .select('*')
           .eq('telefono', telefono)
           .single();
         if (error) {
@@ -126,11 +143,50 @@ function crearDbSupabase() {
         return data;
       },
       async upsert(telefono, messages) {
+        // Solo messages/updated_at: en UPDATE no toca la columna perfil.
         const { error } = await supabase
           .from('citas_sesiones')
           .upsert({ telefono, messages, updated_at: new Date().toISOString() }, { onConflict: 'telefono' });
         if (error) throw new Error(`[DB] sesiones.upsert: ${error.message}`);
       },
+      async actualizarPerfil(telefono, perfil) {
+        const { error } = await supabase
+          .from('citas_sesiones')
+          .upsert({ telefono, perfil, updated_at: new Date().toISOString() }, { onConflict: 'telefono' });
+        if (error) throw new Error(`[DB] sesiones.actualizarPerfil: ${error.message}`);
+      },
+    },
+    // Estado de cada tabla que el agente necesita. Nunca lanza: devuelve el
+    // detalle para que el arranque y scripts/diagnostico-db.js lo reporten.
+    async chequearSalud() {
+      const estados = [];
+      for (const tabla of ['citas_sesiones', 'catalogo', 'horarios', 'citas']) {
+        const { count, error } = await supabase.from(tabla).select('*', { count: 'exact', head: true });
+        estados.push(error ? { tabla, ok: false, error: error.message } : { tabla, ok: true, filas: count ?? 0 });
+      }
+      // Columna perfil (memoria entre conversaciones): puede faltar en bases
+      // creadas con el schema antiguo.
+      const { error: errPerfil } = await supabase.from('citas_sesiones').select('perfil').limit(1);
+      estados.push(errPerfil
+        ? { tabla: 'citas_sesiones.perfil', ok: false, error: errPerfil.message }
+        : { tabla: 'citas_sesiones.perfil', ok: true });
+      return estados;
+    },
+    // Si el catálogo/horarios existen pero están VACÍOS, siembra los datos demo
+    // (INSERT solamente — crear tablas requiere el SQL Editor de Supabase).
+    async autoSembrar() {
+      const resultado = { catalogo: 'sin cambios', horarios: 'sin cambios' };
+      const { count: nCatalogo, error: e1 } = await supabase.from('catalogo').select('*', { count: 'exact', head: true });
+      if (!e1 && (nCatalogo ?? 0) === 0) {
+        const { error } = await supabase.from('catalogo').insert(CATALOGO_DEMO);
+        resultado.catalogo = error ? `error: ${error.message}` : `sembrado (${CATALOGO_DEMO.length} servicios demo)`;
+      }
+      const { count: nHorarios, error: e2 } = await supabase.from('horarios').select('*', { count: 'exact', head: true });
+      if (!e2 && (nHorarios ?? 0) === 0) {
+        const { error } = await supabase.from('horarios').insert(HORARIOS_DEMO);
+        resultado.horarios = error ? `error: ${error.message}` : `sembrado (${HORARIOS_DEMO.length} días)`;
+      }
+      return resultado;
     },
     catalogo: {
       async listar(categoria) {
@@ -205,4 +261,46 @@ function crearDbSupabase() {
 
 const db = usandoMemoria ? dbMemoria : crearDbSupabase();
 
-module.exports = { db, usandoMemoria };
+/**
+ * Reporte de salud para el arranque (telegram/bot.js, index.js) y para
+ * scripts/diagnostico-db.js. Loguea el estado de cada tabla, auto-siembra los
+ * catálogos vacíos y deja instrucciones claras si algo falta. Nunca lanza.
+ */
+async function reportarSalud() {
+  if (usandoMemoria) {
+    console.log('[DB] Base EN MEMORIA (demo): catálogo y horarios ficticios ya cargados. Nada persiste entre reinicios.');
+    return { memoria: true, ok: true };
+  }
+  let estados;
+  try {
+    estados = await db.chequearSalud();
+  } catch (error) {
+    console.error(`[DB] ⚠️ No se pudo consultar Supabase: ${error.message}`);
+    console.error('[DB] ⚠️ Revisa SUPABASE_URL / SUPABASE_ANON_KEY. El bot seguirá con memoria de respaldo en proceso.');
+    return { memoria: false, ok: false, error: error.message };
+  }
+  let ok = true;
+  for (const e of estados) {
+    if (e.ok) {
+      console.log(`[DB] ✓ ${e.tabla}${e.filas != null ? ` (${e.filas} filas)` : ''}`);
+    } else {
+      ok = false;
+      console.error(`[DB] ⚠️ ${e.tabla}: ${e.error}`);
+    }
+  }
+  if (!ok) {
+    console.error('[DB] ⚠️ Faltan tablas o columnas: corre schema-compartido.sql (raíz del repo) en el SQL Editor de Supabase.');
+    console.error('[DB] ⚠️ Diagnóstico detallado: node scripts/diagnostico-db.js');
+  }
+  try {
+    const siembra = await db.autoSembrar();
+    for (const [tabla, estado] of Object.entries(siembra)) {
+      if (estado !== 'sin cambios') console.log(`[DB] Auto-siembra ${tabla}: ${estado}`);
+    }
+  } catch (error) {
+    console.warn(`[DB] Auto-siembra falló: ${error.message}`);
+  }
+  return { memoria: false, ok, estados };
+}
+
+module.exports = { db, usandoMemoria, reportarSalud, CATALOGO_DEMO, HORARIOS_DEMO };

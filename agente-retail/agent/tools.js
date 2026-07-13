@@ -2,6 +2,7 @@
 // Alcance LIMITADO por diseño: buscar productos, stock, crear/consultar/cancelar pedidos.
 
 const { db, normalizar } = require('../database/supabase');
+const { guardarPerfil } = require('./memory');
 
 const TOOL_DEFINITIONS = [
   {
@@ -68,6 +69,17 @@ const TOOL_DEFINITIONS = [
       properties: {},
     },
   },
+  {
+    name: 'anotar_pendiente',
+    description: 'Deja registrado un pendiente para que la tienda lo resuelva y le responda al cliente por este chat. Úsala cuando el cliente pida algo real que no puedes resolver con tus herramientas, o cuando una herramienta siga fallando técnicamente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        resumen: { type: 'string', description: 'Resumen claro del pendiente: qué pidió el cliente, cantidades, a nombre de quién y dirección si la dio' },
+      },
+      required: ['resumen'],
+    },
+  },
 ];
 
 /**
@@ -83,6 +95,7 @@ async function ejecutarHerramienta(nombre, input, telefono) {
     case 'crear_pedido':     return crearPedido(input, telefono);
     case 'consultar_pedido': return consultarPedido(telefono);
     case 'cancelar_pedido':  return cancelarPedido(telefono);
+    case 'anotar_pendiente': return anotarPendiente(input, telefono);
     default: return { error: `Herramienta desconocida: ${nombre}` };
   }
 }
@@ -255,6 +268,11 @@ async function crearPedido({ nombre_cliente, items, direccion, notas, confirmar_
     await db.productos.descontarStock(linea.producto.id, linea.cantidad);
   }
 
+  // Perfil: nombre/dirección vienen del input de un pedido creado con ÉXITO
+  // (determinista, no extraído por el modelo). Sirve para reconocer al
+  // cliente en su próxima conversación. Nunca bloquea la respuesta.
+  guardarPerfil(telefono, { nombre: nombre_cliente, direccion }).catch(() => {});
+
   return {
     creado: true,
     pedido: {
@@ -263,6 +281,16 @@ async function crearPedido({ nombre_cliente, items, direccion, notas, confirmar_
       items: lineas.map((l) => ({ producto: l.producto.nombre, cantidad: l.cantidad, subtotal: Math.round(l.producto.precio * l.cantidad) })),
     },
   };
+}
+
+async function anotarPendiente({ resumen } = {}, telefono) {
+  if (!resumen || !String(resumen).trim()) {
+    return { anotado: false, motivo: 'Falta el resumen del pendiente.' };
+  }
+  // Registro visible en los logs del servicio (Railway): suficiente para la
+  // demo. Una tabla de pendientes real queda como paso de producción.
+  console.log(`[Pendiente] ${telefono}: ${String(resumen).trim()}`);
+  return { anotado: true, mensaje: 'Pendiente registrado: la tienda lo verá y le responderá al cliente por este mismo chat.' };
 }
 
 async function cancelarPedido(telefono) {

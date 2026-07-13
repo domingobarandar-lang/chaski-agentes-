@@ -5,7 +5,7 @@ require('dotenv').config();
 const express = require('express');
 
 const webhookRouter = require('./whatsapp/webhook');
-const { db, usandoMemoria } = require('./database/supabase');
+const { usandoMemoria, reportarSalud } = require('./database/supabase');
 
 const app = express();
 
@@ -25,14 +25,9 @@ app.use('/webhook', webhookRouter);
 const PORT = process.env.PORT || 3400;
 app.listen(PORT, () => {
   console.log(`[Servidor] Agente de retail escuchando en puerto ${PORT}`);
-  if (usandoMemoria) {
-    console.warn('[DB] SUPABASE_URL/SUPABASE_KEY no configuradas — usando base EN MEMORIA con productos demo');
-  } else {
-    db.testConexion().then((ok) => {
-      if (ok) console.log('[DB] Conexión a Supabase OK');
-      else console.warn('[DB] Supabase no responde o faltan tablas — ejecuta database/schema.sql en el SQL Editor');
-    });
-  }
+  // Salud de la base al arrancar: estado tabla por tabla, auto-siembra del
+  // catálogo si está vacío, e instrucciones exactas si falta el schema.
+  reportarSalud().catch((e) => console.warn('[DB] Chequeo de salud falló:', e.message));
   if (!process.env.WHATSAPP_TOKEN) {
     console.warn('[WhatsApp] WHATSAPP_TOKEN no configurado — modo demo: los mensajes salientes se imprimen por consola');
     console.warn('[WhatsApp] Para probar sin Meta: npm run chat');

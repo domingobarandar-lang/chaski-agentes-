@@ -21,12 +21,18 @@
 -- agente-citas
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Historial de conversación por cliente (una fila por identificador de chat)
+-- Historial de conversación por cliente (una fila por identificador de chat).
+-- `perfil`: datos conocidos del cliente (nombre) capturados de citas agendadas
+-- con éxito — el bot lo reconoce en su siguiente conversación.
 create table if not exists citas_sesiones (
   telefono   text primary key,
   messages   jsonb not null default '[]'::jsonb,
+  perfil     jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- Migración para bases creadas con el schema anterior (sin la columna perfil):
+alter table citas_sesiones add column if not exists perfil jsonb;
 
 -- Catálogo de servicios/productos que el bot puede mostrar
 create table if not exists catalogo (
@@ -99,12 +105,18 @@ insert into catalogo (nombre, descripcion, categoria, precio, duracion_minutos) 
 -- agente-retail
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Historial de conversación por cliente (una fila por identificador de chat)
+-- Historial de conversación por cliente (una fila por identificador de chat).
+-- `perfil`: datos conocidos del cliente (nombre, dirección) capturados de
+-- pedidos creados con éxito — el bot lo reconoce en su siguiente conversación.
 create table if not exists retail_sesiones (
   telefono   text primary key,
   messages   jsonb not null default '[]'::jsonb,
+  perfil     jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- Migración para bases creadas con el schema anterior (sin la columna perfil):
+alter table retail_sesiones add column if not exists perfil jsonb;
 
 -- Catálogo de productos con stock
 create table if not exists productos (

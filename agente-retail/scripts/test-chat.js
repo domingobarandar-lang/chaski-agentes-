@@ -18,8 +18,8 @@ const path = require('path');
 
 const MODO = (process.env.MOCK === 'true' || !process.env.ANTHROPIC_API_KEY) ? 'mock' : 'api';
 
-if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
-  console.error('Los tests usan la base EN MEMORIA: quita SUPABASE_URL/SUPABASE_KEY del entorno antes de correrlos.');
+if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
+  console.error('Los tests usan la base EN MEMORIA: quita SUPABASE_URL/SUPABASE_ANON_KEY del entorno antes de correrlos.');
   process.exit(1);
 }
 
@@ -30,7 +30,10 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
 const estadoMock = { pasos: [] };
 let contadorToolUse = 0;
 
-function mockCreate() {
+function mockCreate(params) {
+  // Última llamada al "modelo": los escenarios de resiliencia inspeccionan
+  // system (perfil inyectado) y messages (historial que llegó al modelo).
+  estadoMock.ultimoParams = params;
   const paso = estadoMock.pasos.shift();
   if (paso?.tools?.length) {
     return {
@@ -752,6 +755,128 @@ const ESCENARIOS = [
       },
     }],
   },
+  {
+    // Reproduce la falla real vista en producción: la tabla de sesiones no
+    // responde y el bot olvidaba el pedido/dirección en cada turno.
+    nombre: 'RESILIENCIA: sesiones de Supabase caídas — la conversación NO pierde contexto',
+    antes: async ({ db }) => {
+      const falla = async () => { throw new Error('simulado: tabla retail_sesiones no existe'); };
+      db.sesiones.get = falla;
+      db.sesiones.upsert = falla;
+      db.sesiones.actualizarPerfil = falla;
+    },
+    turnos: [
+      {
+        user: 'Hola! ¿Tienen almendras? ¿A cuánto?',
+        mock: [
+          { tools: [{ name: 'consultar_stock', input: { producto: 'almendras' } }] },
+          { texto: 'Sí 😊 Almendras a $12.990 el kilo, quedan 15 kg. ¿Te anoto un pedido?' },
+        ],
+        evaluar: async () => [],
+      },
+      {
+        user: 'Dame 2 kilos, soy José. Despacho a El Pireo 5881, Vitacura.',
+        mock: [
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'José', items: [{ producto: 'almendras', cantidad: 2 }], direccion: 'El Pireo 5881, Vitacura' } }] },
+          { texto: '¡Listo, José! Pedido registrado: 2 kg de almendras, $25.980, despacho a El Pireo 5881 ✅' },
+        ],
+        evaluar: async ({ modo, ultimoParams }) => {
+          if (modo !== 'mock') return [];
+          return (ultimoParams?.messages?.length ?? 0) >= 3
+            ? []
+            : ['BUG: el historial no llegó al modelo con Supabase caído (el respaldo en proceso no está funcionando).'];
+        },
+      },
+    ],
+    alFinal: async ({ db, telefono }) => {
+      const problemas = [];
+      const pedido = await db.pedidos.ultimoPorTelefono(telefono);
+      if (!pedido || pedido.total !== 25980) problemas.push(`Con las sesiones caídas igual debía crearse el pedido por $25.980: ${JSON.stringify(pedido?.total)}`);
+      if (pedido && pedido.direccion !== 'El Pireo 5881, Vitacura') problemas.push(`El pedido no guardó la dirección: ${JSON.stringify(pedido?.direccion)}`);
+      return problemas;
+    },
+  },
+  {
+    // La otra falla real del transcript: catálogo caído convertido en "no
+    // tenemos almendras" (falso) o en un pedido "confirmado" inexistente.
+    nombre: 'RESILIENCIA: catálogo caído — admite el problema, no dice "no tenemos" ni confirma pedidos',
+    antes: async ({ db }) => {
+      db.productos.buscar = async () => { throw new Error('simulado: productos no responde'); };
+    },
+    turnos: [{
+      user: 'quiero comprar 2 kilos de almendras',
+      mock: [
+        { tools: [{ name: 'consultar_stock', input: { producto: 'almendras' } }] },
+        { texto: 'Uy, tuve un problema técnico al consultar el catálogo 😅 ¿Lo intento de nuevo al tiro, o dejo tu encargo anotado para que la tienda te lo confirme por este chat?' },
+      ],
+      evaluar: async ({ respuesta, capturas, modo }) => {
+        const problemas = [];
+        if (!/problema t[eé]cnico|inconveniente/i.test(respuesta)) problemas.push('No admite el problema técnico ante el cliente.');
+        if (/no tenemos|no hay stock|no nos quedan|agotad|sin stock/i.test(respuesta)) problemas.push('BUG: convirtió una falla técnica en "no tenemos almendras" (la falla real del transcript).');
+        if (/pedido (registrado|creado|confirmado)|te confirmo tu pedido/i.test(respuesta)) problemas.push('BUG: confirmó un pedido que nunca se creó (la falla real del transcript).');
+        if (modo === 'mock') {
+          const captura = capturas.find((c) => c.name === 'consultar_stock');
+          if (!captura?.error) problemas.push('La herramienta debía fallar en este escenario (montaje incorrecto).');
+        }
+        return problemas;
+      },
+    }],
+    alFinal: async ({ db, telefono }) => {
+      const pedido = await db.pedidos.ultimoPorTelefono(telefono);
+      return pedido ? ['BUG: se creó un pedido con el catálogo caído.'] : [];
+    },
+  },
+  {
+    nombre: 'PERFIL: reconoce al cliente (nombre y dirección) en una conversación posterior',
+    turnos: [
+      {
+        user: 'Quiero 2 kg de almendras, soy José. Despacho a El Pireo 5881, Vitacura. Confirmo.',
+        mock: [
+          { tools: [{ name: 'crear_pedido', input: { nombre_cliente: 'José', items: [{ producto: 'almendras', cantidad: 2 }], direccion: 'El Pireo 5881, Vitacura' } }] },
+          { texto: '¡Listo, José! 2 kg de almendras, $25.980, a El Pireo 5881 ✅' },
+        ],
+        evaluar: async () => [],
+      },
+      {
+        user: 'Hola! quiero pedir de nuevo',
+        mock: [{ texto: '¡Hola de nuevo, José! 😊 ¿Mismo despacho a El Pireo 5881, Vitacura? ¿Qué te preparo esta vez?' }],
+        evaluar: async ({ modo, ultimoParams }) => {
+          if (modo !== 'mock') return [];
+          const system = ultimoParams?.system || '';
+          const problemas = [];
+          if (!/DATOS CONOCIDOS DEL CLIENTE/.test(system)) problemas.push('El system prompt no inyecta los datos conocidos del cliente.');
+          if (!/José/.test(system)) problemas.push('El perfil inyectado no contiene el nombre capturado del pedido.');
+          if (!/El Pireo 5881/.test(system)) problemas.push('El perfil inyectado no contiene la dirección capturada del pedido.');
+          return problemas;
+        },
+      },
+    ],
+    alFinal: async ({ db, telefono }) => {
+      const sesion = await db.sesiones.get(telefono);
+      return sesion?.perfil?.nombre === 'José' && /El Pireo/.test(sesion?.perfil?.direccion || '')
+        ? []
+        : [`El perfil no quedó persistido en la sesión: ${JSON.stringify(sesion?.perfil)}`];
+    },
+  },
+  {
+    nombre: 'DERIVACIÓN: pendiente anotado cuando el cliente pide algo fuera de alcance',
+    turnos: [{
+      user: '¿Arman canastas de regalo para empresas? Necesito 20 para diciembre.',
+      mock: [
+        { tools: [{ name: 'anotar_pendiente', input: { resumen: 'Cliente pide 20 canastas de regalo corporativas para diciembre' } }] },
+        { texto: 'Eso lo cotiza directamente la tienda 😊 Dejé anotada tu consulta y te responderán por este mismo chat.' },
+      ],
+      evaluar: async ({ respuesta, capturas, modo }) => {
+        const problemas = [];
+        if (!/anotad|responder[aá]n|tienda/i.test(respuesta)) problemas.push('No le dice al cliente que su consulta quedó derivada/anotada.');
+        if (modo === 'mock') {
+          const [r] = capturaDe(capturas, 'anotar_pendiente');
+          if (r?.anotado !== true) problemas.push('anotar_pendiente no registró el pendiente (¿herramienta no definida?).');
+        }
+        return problemas;
+      },
+    }],
+  },
 ];
 
 // Chequeos estáticos sobre las definiciones de herramientas (no requieren modelo)
@@ -761,10 +886,31 @@ function chequeosEstaticos(tools) {
   if (!nombres.includes('cancelar_pedido')) {
     problemas.push('Falta la herramienta cancelar_pedido (los clientes se equivocan y piden cambiar/cancelar).');
   }
+  if (!nombres.includes('anotar_pendiente')) {
+    problemas.push('Falta la herramienta anotar_pendiente (derivación a la tienda cuando el bot no puede resolver).');
+  }
   const crear = tools.TOOL_DEFINITIONS.find((t) => t.name === 'crear_pedido');
   const tipo = crear?.input_schema?.properties?.items?.items?.properties?.cantidad?.type;
   if (tipo !== 'number') {
     problemas.push(`crear_pedido.items.cantidad es "${tipo}" — debe ser "number" para permitir kg decimales.`);
+  }
+  // Botones de Telegram (módulo puro): cada botón de inicio tiene su frase y
+  // los botones contextuales siempre ofrecen Menú.
+  try {
+    const { TECLADO_INICIO, FRASES_BOTONES, botonesParaRespuesta } = require('../telegram/botones');
+    const datos = TECLADO_INICIO.inline_keyboard.flat().map((b) => b.callback_data);
+    const sinFrase = datos.filter((d) => d !== 'menu' && !FRASES_BOTONES[d]);
+    if (sinFrase.length) problemas.push(`Botones de inicio sin frase asociada: ${sinFrase.join(', ')}`);
+    const teclado = botonesParaRespuesta('respuesta cualquiera');
+    if (!teclado.inline_keyboard.flat().some((b) => b.callback_data === 'menu')) {
+      problemas.push('botonesParaRespuesta no incluye el botón Menú');
+    }
+    const conPedido = botonesParaRespuesta('¡Listo! Tu pedido #4 quedó registrado ✅');
+    if (!conPedido.inline_keyboard.flat().some((b) => b.callback_data === 'retail:estado')) {
+      problemas.push('Tras crear un pedido, los botones contextuales no ofrecen "Estado de mi pedido"');
+    }
+  } catch (error) {
+    problemas.push(`No se pudo cargar telegram/botones.js: ${error.message}`);
   }
   return problemas;
 }
@@ -820,6 +966,7 @@ async function main() {
         tools: ctx.tools,
         telefono,
         modo: MODO,
+        ultimoParams: estadoMock.ultimoParams,
       });
       problemasEscenario.push(...problemas);
     }

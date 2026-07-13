@@ -42,6 +42,9 @@ function respuestaTexto(texto) {
 }
 
 async function crearRespuestaMock(params) {
+  // Última llamada al "modelo": los escenarios de resiliencia inspeccionan
+  // system (perfil inyectado) y messages (historial que llegó al modelo).
+  mockState.ultimoParams = params;
   const disponibles = new Set((params.tools || []).map((t) => t.name));
 
   // Registrar los tool_result que devuelve el loop del agente
@@ -86,6 +89,7 @@ async function crearRespuestaMock(params) {
 
 const { processMessage, _setClienteParaTests } = require('../agent/core');
 const { db, usandoMemoria } = require('../database/supabase');
+const { _resetRespaldoParaTests } = require('../agent/memory');
 
 if (MODO_MOCK) {
   const clienteMock = {
@@ -479,6 +483,132 @@ const ESCENARIOS = [
       check(r.includes('12:00'), 'No informa la hora de la cita');
     },
   },
+  {
+    // Reproduce la falla real vista en producción: la tabla de sesiones no
+    // responde y el bot olvidaba todo en cada turno ("confirmo" → amnesia).
+    nombre: 'RESILIENCIA: sesiones de Supabase caídas — la conversación NO pierde contexto',
+    async seed() {
+      const falla = async () => { throw new Error('simulado: tabla citas_sesiones no existe'); };
+      db.sesiones.get = falla;
+      db.sesiones.upsert = falla;
+      db.sesiones.actualizarPerfil = falla;
+    },
+    turnos: [
+      {
+        user: 'Hola! Quiero agendar una hora para el martes',
+        modelo: [
+          { tools: [{ name: 'consultar_disponibilidad', input: (c) => ({ fecha: c.fechas.martes }) }] },
+          { text: (c) => {
+              const horas = (c.lastResult('consultar_disponibilidad')?.horas_disponibles || []).slice(0, 4).join(', ');
+              return `Para el ${natural(c.fechas.martes)} tengo: ${horas}. ¿Qué servicio y a nombre de quién? 😊`;
+            } },
+        ],
+      },
+      {
+        user: 'Una limpieza dental a las 10:00, soy Camila',
+        modelo: [{ text: (c) => `Confirmo: Limpieza dental el ${natural(c.fechas.martes)} a las 10:00, a nombre de Camila. ¿Está bien? 😊` }],
+        async despues(ctx, check) {
+          if (ctx.mock) {
+            check((ctx.ultimoParams?.messages?.length ?? 0) >= 3,
+              'BUG: el historial no llegó al modelo con Supabase caído (el respaldo en proceso no está funcionando)');
+          }
+        },
+      },
+      {
+        user: 'Sí, confirmo',
+        modelo: [
+          { tools: [{ name: 'agendar_cita', input: (c) => ({ nombre: 'Camila', servicio: 'Limpieza dental', fecha: c.fechas.martes, hora: '10:00' }) }] },
+          { text: (c) => (c.lastResult('agendar_cita')?.agendada
+              ? '¡Listo, Camila! Quedó agendada tu Limpieza dental ✅'
+              : 'No pude agendar 😔') },
+        ],
+      },
+    ],
+    async expect(ctx, check) {
+      const citas = await vigentes(ctx.telefono);
+      check(citas.length === 1, `Con las sesiones caídas igual debía agendarse 1 cita, hay ${citas.length}`);
+      check(/listo|agendada|✅/i.test(ctx.respuestas[2]), 'La respuesta final no confirma el agendamiento');
+    },
+  },
+  {
+    // La otra falla real: herramienta caída convertida en "no tenemos X" o en
+    // un pedido "confirmado" que nunca se creó.
+    nombre: 'RESILIENCIA: herramienta caída — admite el problema, no inventa ni confirma',
+    async seed() {
+      db.catalogo.listar = async () => { throw new Error('simulado: catalogo no responde'); };
+    },
+    turnos: [{
+      user: '¿Qué servicios tienen y cuánto cuestan?',
+      modelo: [
+        { tools: [{ name: 'ver_catalogo', input: {} }] },
+        { text: (c) => {
+            const r = c.lastResult('ver_catalogo');
+            if (r?.error_tecnico) return 'Uy, tuve un problema técnico consultando el catálogo 😅 ¿Lo intento de nuevo en un momento, o te dejo anotado con recepción para que te confirmen?';
+            return 'Tenemos: ' + (r?.servicios || []).map((s) => s.nombre).join(', ');
+          } },
+      ],
+    }],
+    async expect(ctx, check) {
+      const r = ctx.respuestas[0];
+      check(/problema t[eé]cnico|inconveniente/i.test(r), 'No admite el problema técnico ante el cliente');
+      check(!/no (hay|tenemos|ofrecemos)/i.test(r), 'BUG: convirtió una falla técnica en "no tenemos servicios"');
+      if (ctx.mock) {
+        check(ctx.lastResult('ver_catalogo')?.error_tecnico === true, 'El tool_result de una falla no viene tipado como error_tecnico');
+        const bloques = (ctx.ultimoParams?.messages || [])
+          .filter((m) => Array.isArray(m.content))
+          .flatMap((m) => m.content);
+        check(bloques.some((b) => b.type === 'tool_result' && b.is_error === true), 'El tool_result de una falla no lleva is_error: true');
+      }
+    },
+  },
+  {
+    nombre: 'PERFIL: reconoce al cliente en una conversación posterior',
+    turnos: [
+      {
+        user: 'Quiero una limpieza dental el martes a las 10, soy Domingo. Agéndala de una.',
+        modelo: [
+          { tools: [{ name: 'agendar_cita', input: (c) => ({ nombre: 'Domingo', servicio: 'Limpieza dental', fecha: c.fechas.martes, hora: '10:00' }) }] },
+          { text: (c) => (c.lastResult('agendar_cita')?.agendada ? '¡Listo, Domingo! Quedó agendada tu Limpieza dental ✅' : 'No pude agendar 😔') },
+        ],
+      },
+      {
+        user: 'Hola! ¿A qué hora era mi cita?',
+        modelo: [
+          { tools: [{ name: 'mis_citas', input: {} }] },
+          { text: (c) => {
+              const cita = c.lastResult('mis_citas')?.citas?.[0];
+              return cita ? `Hola de nuevo, Domingo 😊 Tu ${cita.servicio} es el ${natural(cita.fecha)} a las ${cita.hora}.` : 'No encontré citas vigentes 😊';
+            } },
+        ],
+        async despues(ctx, check) {
+          if (ctx.mock) {
+            const system = ctx.ultimoParams?.system || '';
+            check(/DATOS CONOCIDOS DEL CLIENTE/.test(system), 'El system prompt no inyecta los datos conocidos del cliente');
+            check(/Domingo/.test(system), 'El perfil inyectado no contiene el nombre capturado al agendar');
+          }
+        },
+      },
+    ],
+    async expect(ctx, check) {
+      check(ctx.respuestas[1].includes('10:00'), 'No informa la hora de la cita del cliente');
+    },
+  },
+  {
+    nombre: 'DERIVACIÓN: pendiente anotado cuando el cliente pide algo fuera de alcance',
+    turnos: [{
+      user: '¿Pueden mandarme al correo el presupuesto de un implante?',
+      modelo: [
+        { tools: [{ name: 'anotar_pendiente', input: { resumen: 'Cliente pide presupuesto de implante enviado por correo' } }] },
+        { text: (c) => (c.lastResult('anotar_pendiente')?.anotado
+            ? 'Eso lo ve directamente recepción 😊 Ya dejé anotada tu solicitud y te responderán por este mismo chat.'
+            : 'No pude registrar tu solicitud 😔') },
+      ],
+    }],
+    async expect(ctx, check) {
+      check(/anotad|recepci[oó]n|responder[aá]n/i.test(ctx.respuestas[0]), 'No le dice al cliente que su solicitud quedó derivada/anotada');
+      if (ctx.mock) check(ctx.lastResult('anotar_pendiente')?.anotado === true, 'anotar_pendiente no registró el pendiente (¿herramienta no definida?)');
+    },
+  },
 ];
 
 // ─── Runner ───────────────────────────────────────────────────────────────────
@@ -495,9 +625,17 @@ async function main() {
   const resultados = [];
   let n = 0;
 
+  // Los escenarios de resiliencia parchean db.* para simular fallas de
+  // Supabase: se restauran los métodos originales antes de cada escenario.
+  const sesionesOriginal = { ...db.sesiones };
+  const catalogoOriginal = { ...db.catalogo };
+
   for (const esc of ESCENARIOS) {
     n++;
     await db.resetDemo?.();
+    Object.assign(db.sesiones, sesionesOriginal);
+    Object.assign(db.catalogo, catalogoOriginal);
+    _resetRespaldoParaTests();
     mockState.toolLog.length = 0;
     mockState.queue.length = 0;
 
@@ -507,6 +645,7 @@ async function main() {
       respuestas: [],
       mock: MODO_MOCK,
       get toolLog() { return mockState.toolLog; },
+      get ultimoParams() { return mockState.ultimoParams; },
       lastResult: (nombre) => ctxMock().lastResult(nombre),
     };
 

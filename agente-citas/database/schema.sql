@@ -1,13 +1,23 @@
 -- Schema del agente de citas — ejecutar en Supabase SQL Editor.
--- NOTA: el bot debe usar la clave service_role (la anon da "permission denied"
--- en tablas con RLS). Como alternativa para la demo, se deshabilita RLS abajo.
+-- ⚠️ Si el proyecto Supabase es COMPARTIDO con agente-retail, usar mejor
+-- schema-compartido.sql (raíz del repo), que crea las tablas de ambos.
+-- Las tablas quedan con RLS deshabilitado (demo), así que la clave anon
+-- (SUPABASE_ANON_KEY) funciona sin "permission denied".
 
--- Historial de conversación por cliente (una fila por teléfono)
-create table if not exists sesiones (
+-- Historial de conversación por cliente (una fila por teléfono).
+-- OJO: el código lee `citas_sesiones` (prefijada para no chocar con la tabla
+-- de agente-retail en un proyecto compartido).
+-- `perfil`: datos conocidos del cliente (nombre) capturados de citas agendadas
+-- con éxito — el bot lo reconoce en su siguiente conversación.
+create table if not exists citas_sesiones (
   telefono   text primary key,
   messages   jsonb not null default '[]'::jsonb,
+  perfil     jsonb,
   updated_at timestamptz not null default now()
 );
+
+-- Migración para bases creadas con el schema anterior (sin la columna perfil):
+alter table citas_sesiones add column if not exists perfil jsonb;
 
 -- Catálogo de servicios/productos que el bot puede mostrar
 create table if not exists catalogo (
@@ -45,11 +55,18 @@ create table if not exists citas (
 create index if not exists idx_citas_fecha    on citas (fecha) where estado = 'confirmada';
 create index if not exists idx_citas_telefono on citas (telefono_cliente);
 
--- Demo: sin RLS (el acceso es solo desde el backend con service_role).
-alter table sesiones disable row level security;
-alter table catalogo disable row level security;
-alter table horarios disable row level security;
-alter table citas    disable row level security;
+-- Demo: sin RLS (el acceso es solo desde el backend con la clave anon).
+alter table citas_sesiones disable row level security;
+alter table catalogo       disable row level security;
+alter table horarios       disable row level security;
+alter table citas          disable row level security;
+
+-- Si la base venía del schema ANTIGUO que creaba la tabla `sesiones` sin
+-- prefijo (el código no la lee), migrar el historial y eliminarla:
+--   insert into citas_sesiones (telefono, messages, updated_at)
+--     select telefono, messages, updated_at from sesiones
+--     on conflict (telefono) do nothing;
+--   drop table sesiones;
 
 -- ─── Datos de ejemplo (empresa FICTICIA: Clínica Dental Sonrisa del Valle) ───
 

@@ -2,6 +2,7 @@
 // Alcance LIMITADO por diseño: catálogo, disponibilidad, agendar y cancelar.
 
 const { db } = require('../database/supabase');
+const { guardarPerfil } = require('./memory');
 
 const SLOT_MINUTOS = Number(process.env.SLOT_MINUTOS) || 60;
 
@@ -69,6 +70,17 @@ const TOOL_DEFINITIONS = [
       properties: {},
     },
   },
+  {
+    name: 'anotar_pendiente',
+    description: 'Deja registrado un pendiente para que recepción lo resuelva y le responda al cliente por este chat. Úsala cuando el cliente pida algo real que no puedes resolver con tus herramientas, o cuando una herramienta siga fallando técnicamente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        resumen: { type: 'string', description: 'Resumen claro del pendiente: qué pidió el cliente, para cuándo y a nombre de quién' },
+      },
+      required: ['resumen'],
+    },
+  },
 ];
 
 /**
@@ -85,6 +97,7 @@ async function ejecutarHerramienta(nombre, input, telefono) {
     case 'mis_citas':                return misCitas(telefono);
     case 'cancelar_cita':            return cancelarCita(input, telefono);
     case 'ver_horarios':             return verHorarios();
+    case 'anotar_pendiente':         return anotarPendiente(input, telefono);
     default: return { error: `Herramienta desconocida: ${nombre}` };
   }
 }
@@ -206,7 +219,21 @@ async function agendarCita({ nombre, servicio, fecha, hora, personas, notas }, t
     personas: personas ?? 1,
     notas: notas ?? null,
   });
+  // Perfil: el nombre viene del input de una cita agendada con ÉXITO
+  // (determinista, no extraído por el modelo). Sirve para reconocer al
+  // cliente en su próxima conversación. Nunca bloquea la respuesta.
+  guardarPerfil(telefono, { nombre }).catch(() => {});
   return { agendada: true, cita: { id: cita.id, nombre, servicio: servicioCatalogo.nombre, fecha, hora: horaNorm, personas: personas ?? 1 } };
+}
+
+async function anotarPendiente({ resumen } = {}, telefono) {
+  if (!resumen || !String(resumen).trim()) {
+    return { anotado: false, motivo: 'Falta el resumen del pendiente.' };
+  }
+  // Registro visible en los logs del servicio (Railway): suficiente para la
+  // demo. Una tabla de pendientes real queda como paso de producción.
+  console.log(`[Pendiente] ${telefono}: ${String(resumen).trim()}`);
+  return { anotado: true, mensaje: 'Pendiente registrado: recepción lo verá y le responderá al cliente por este mismo chat.' };
 }
 
 const resumenCita = (c) => ({

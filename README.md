@@ -57,7 +57,7 @@ Este sí necesita `ANTHROPIC_API_KEY` real (llama al modelo de verdad, no hay mo
 | `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` | `claude-haiku-4-5-20251001` | Cambiar sin tocar código si hace falta otro modelo de Anthropic. |
 | `MOCK` | `false` | `false` | `MOCK=true` fuerza respuestas simuladas en `telegram/bot.js` y `npm test` sin llamar nunca a Anthropic, aunque haya `ANTHROPIC_API_KEY` configurada. |
 | `TELEGRAM_BOT_TOKEN` | ✅ configurado (bot principal) | ⬜ **vacío — falta crear un segundo bot** | Dos bots no pueden compartir token (conflicto 409 de polling). Crear en @BotFather (`/newbot`) y pegar en `agente-retail/.env`. |
-| `SUPABASE_URL` / `SUPABASE_KEY` | ⬜ vacías | ⬜ vacías | Sin ellas, cada agente usa una base **en memoria** con datos demo (se resetea al reiniciar). Para producción: crear proyecto Supabase, correr `database/schema.sql`, y usar la clave **service_role** (la `anon` da *permission denied* con RLS). |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | ⬜ vacías | ⬜ vacías | ⚠️ El código lee `SUPABASE_ANON_KEY` (no `SUPABASE_KEY`). Sin ellas, cada agente usa una base **en memoria** con datos demo (se resetea al reiniciar). Para persistencia: crear proyecto Supabase y correr **`schema-compartido.sql`** (raíz del repo) — deja las tablas sin RLS, así que la clave `anon` funciona. Verificar con `npm run diagnostico`. |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_ID` / `WHATSAPP_VERIFY_TOKEN` / `WHATSAPP_APP_SECRET` | ⬜ vacías | ⬜ vacías | Sin ellas, el webhook corre en modo demo (mensajes salientes por consola). Para producción: app en Meta for Developers + producto WhatsApp Cloud API. |
 
 ## Deploy en Railway
@@ -81,25 +81,33 @@ Los `.env` locales **no se suben** (están en `.gitignore`); las variables se ca
 | `ANTHROPIC_API_KEY` | ✅ | Key de la consola de Anthropic (console.anthropic.com). Sin ella, el bot real aborta al arrancar aunque el token de Telegram esté configurado. |
 | `ANTHROPIC_MODEL` | Opcional | Default `claude-haiku-4-5-20251001`. |
 | `MOCK` | No definir en producción | Dejar sin declarar (o `false`). `true` fuerza el modo demo y el proceso termina solo tras la simulación. |
-| `SUPABASE_URL` / `SUPABASE_KEY` | Recomendada | Sin ellas, cada reinicio/redeploy del servicio borra citas o pedidos (base en memoria). Usar la clave **service_role**, no `anon`. |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Recomendada | ⚠️ La variable se llama `SUPABASE_ANON_KEY`. Sin ellas, cada reinicio/redeploy del servicio borra citas o pedidos (base en memoria). Correr antes **`schema-compartido.sql`** en el SQL Editor (crea las tablas de ambos agentes sin RLS: la clave `anon` funciona). |
 | `PORT` | No usar | El `startCommand` de producción (`telegram/bot.js`) no levanta servidor HTTP — corre por *polling*. `PORT`/Express solo aplican si en el futuro se cambia el `startCommand` a `node index.js` para servir el webhook de WhatsApp. |
 
 ### 3. Verificar el deploy
 
-- En **Logs** del servicio debe aparecer `[Telegram] Bot de citas/retail escuchando (polling)…` seguido de `[DB] Conexión a Supabase OK` (o el warning de base en memoria, si Supabase aún no está configurado).
-- Escribirle al bot en Telegram (buscarlo por su username) y confirmar que responde.
+- En **Logs** del servicio debe aparecer `[Telegram] Bot de citas/retail escuchando (polling)…` seguido del **chequeo de salud de la base**: una línea `[DB] ✓ tabla (N filas)` por cada tabla. Si sale `[DB] ⚠️ ...`, el propio log dice qué SQL correr (casi siempre `schema-compartido.sql`). Si el catálogo existe pero está vacío, el bot lo **auto-siembra** con los datos demo.
+- Para un dictamen completo desde tu máquina: `npm run diagnostico` en cada carpeta (con las mismas `SUPABASE_URL`/`SUPABASE_ANON_KEY` del servicio en el `.env`) — dice exactamente qué falta y qué SQL correr.
+- Escribirle al bot en Telegram (buscarlo por su username) y confirmar que responde. El `/start` debe mostrar **botones** (Ver catálogo / Agendar / etc.).
 - Si el proceso termina solo (estado *Crashed* o *Completed* en vez de *Active*) revisar los logs: casi siempre falta `TELEGRAM_BOT_TOKEN` u `ANTHROPIC_API_KEY`, o `MOCK` quedó en `true`.
 - `restartPolicyType = "on_failure"` (máx. 3 reintentos) ya está en `railway.toml`: un crash por error transitorio se reintenta solo; un mal arranque por variables faltantes NO se arregla reintentando — hay que corregir las variables.
 
 ### Checklist exacto de lo que falta para producción
 
 1. **Segundo token de Telegram** para `agente-retail` (`@BotFather` → `/newbot`).
-2. **Supabase** en ambos: crear proyecto, correr `database/schema.sql`, pegar `SUPABASE_URL` + `SUPABASE_KEY` (service_role) en cada `.env`. Sin esto, cualquier reinicio del proceso borra citas/pedidos.
+2. **Supabase** en ambos: crear proyecto, correr **`schema-compartido.sql`** (raíz del repo, una sola vez — crea las tablas de los dos agentes), pegar `SUPABASE_URL` + `SUPABASE_ANON_KEY` en cada `.env`/servicio. Sin esto, cualquier reinicio del proceso borra citas/pedidos (aunque el bot sigue conversando bien: memoria de respaldo en proceso + auto-siembra del catálogo). Verificar con `npm run diagnostico`.
 3. **WhatsApp Cloud API** en ambos (si el canal final es WhatsApp y no Telegram): app en Meta for Developers, desplegar el servidor en un dominio público (Railway u otro), configurar el webhook con `WHATSAPP_VERIFY_TOKEN`.
 4. **Confirmar que `ANTHROPIC_API_KEY` esté activa y con crédito disponible** antes de tráfico real — en `MOCK=true`/`telegram:mock` nunca se usa, así que no se ha verificado en este proceso.
 5. `npm test` en ambos proyectos corre `scripts/test-chat.js`, que cae a modo mock automáticamente si falta `ANTHROPIC_API_KEY` (o si se fuerza con `MOCK=true`) — así que `npm test` nunca gasta crédito por accidente. Para probar contra el modelo real, asegúrate de tener `ANTHROPIC_API_KEY` configurada y `MOCK=false` (o sin definir).
 
-**Estado verificado en modo mock (sin gastar créditos, `MOCK=true`):** `agente-citas` 13/13 escenarios OK, `agente-retail` 24/24 (23 escenarios + chequeos estáticos) OK, y `npm run telegram:mock` 3/3 conversaciones OK en ambos. Esto confirma que el loop del agente, las herramientas y la memoria funcionan — falta únicamente lo listado en los puntos 1-4 (credenciales reales) para tráfico de producción.
+**Estado verificado en modo mock (sin gastar créditos, `MOCK=true`):** `agente-citas` 17/17 escenarios OK, `agente-retail` suite completa OK (27 escenarios + chequeos estáticos, botones incluidos), y `npm run telegram:mock` 3/3 conversaciones OK en ambos. Cubre además los casos de resiliencia: Supabase caído sin perder el contexto de la conversación, herramienta caída sin inventar "no tenemos X" ni confirmar pedidos fantasma, perfil del cliente recordado entre conversaciones y derivación con `anotar_pendiente`. Falta únicamente lo listado en los puntos 1-4 (credenciales reales) para tráfico de producción.
+
+## Experiencia del cliente (Telegram)
+
+- **Botones**: `/start` y `/help` muestran accesos rápidos (inline keyboard); tras mostrar catálogo, agendar o crear un pedido aparecen botones contextuales (p. ej. *Estado de mi pedido*) y siempre un botón *Menú*. Cada botón entra por el mismo loop del agente que un mensaje escrito (`telegram/botones.js`).
+- **Memoria confiable**: el historial se persiste en Supabase Y en un respaldo en proceso — si Supabase falla, la conversación no pierde el hilo (y los logs lo avisan).
+- **Perfil del cliente**: al agendar una cita o crear un pedido con éxito, el nombre (y la dirección en retail) quedan guardados en la sesión; en la próxima conversación el bot reconoce al cliente por su nombre.
+- **Autonomía sin inventar**: si una herramienta falla, el bot lo admite ("tuve un problema técnico"), nunca dice que no hay stock/horas por una falla ni confirma acciones no realizadas, y puede dejar el encargo **anotado** (`anotar_pendiente`, visible en los logs como `[Pendiente] ...`) para que el negocio responda por el mismo chat.
 
 ## Estructura (igual en ambos proyectos)
 
