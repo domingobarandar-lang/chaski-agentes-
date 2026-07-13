@@ -52,6 +52,22 @@ async function main() {
     } catch (error) {
       console.log(`\n[Catálogo] ⚠️ No se pudo leer: ${error.message}`);
     }
+
+    // ¿La base ACEPTA escrituras con la anon key? Con RLS activado las
+    // lecturas devuelven vacío (sin error) y las escrituras fallan: el bot
+    // "funcionaría" pero ningún pedido se guardaría. Sonda inofensiva:
+    // upsert + delete de una fila de sesión de diagnóstico.
+    try {
+      const { error } = await db.supabase
+        .from('retail_sesiones')
+        .upsert({ telefono: '__diagnostico__', messages: [] }, { onConflict: 'telefono' });
+      if (error) throw new Error(error.message);
+      await db.supabase.from('retail_sesiones').delete().eq('telefono', '__diagnostico__');
+      console.log('\n[Escritura] ✓ La base acepta escrituras con la clave anon.');
+    } catch (error) {
+      console.log(`\n[Escritura] ❌ La base NO acepta escrituras con la clave anon: ${error.message}`);
+      acciones.push('Desbloquear escrituras (típicamente RLS quedó ACTIVADO — Supabase lo sugiere pero esta demo usa la clave anon). En el SQL Editor correr:\n     alter table retail_sesiones disable row level security;\n     alter table productos       disable row level security;\n     alter table pedidos         disable row level security;\n     alter table pedido_items    disable row level security;\n   OJO: con RLS activado el conteo de filas de arriba puede salir 0 aunque haya datos.');
+    }
   }
 
   console.log('\n' + '═'.repeat(64));
