@@ -1,0 +1,36 @@
+# Gate de CI: la suite mock completa de cada agente (0 tokens, sin red) en
+# cada push/PR a main. El bug del WebSocket en Railway se descubrió en
+# producción porque nada corría los tests antes de mergear — esto lo evita.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  suite-mock:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        agente: [agente-citas, agente-retail]
+    defaults:
+      run:
+        working-directory: ${{ matrix.agente }}
+    env:
+      MOCK: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.agente }}/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Suite de escenarios (mock, 0 tokens)
+        run: npm test
+      - name: Puente Telegram (mock)
+        run: npm run telegram:mock
