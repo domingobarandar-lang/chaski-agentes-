@@ -19,11 +19,12 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'consultar_disponibilidad',
-    description: 'Devuelve las horas disponibles para agendar en una fecha dada. Úsala SIEMPRE antes de agendar, para ofrecer solo horas realmente libres.',
+    description: 'Devuelve las horas disponibles para agendar en una fecha dada. Úsala SIEMPRE antes de agendar, para ofrecer solo horas realmente libres. Si ya sabes qué servicio quiere el cliente, pásalo también: así se considera su duración real.',
     input_schema: {
       type: 'object',
       properties: {
-        fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD' },
+        fecha:    { type: 'string', description: 'Fecha en formato YYYY-MM-DD' },
+        servicio: { type: 'string', description: 'Opcional: servicio del catálogo, para reservar el bloque completo según su duración' },
       },
       required: ['fecha'],
     },
@@ -125,7 +126,37 @@ async function verCatalogo({ categoria } = {}) {
   };
 }
 
-async function consultarDisponibilidad({ fecha }) {
+// '09:30' → 570 (minutos desde medianoche)
+const aMinutos = (hhmm) => {
+  const [h = 0, m = 0] = String(hhmm || '').split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+
+/**
+ * Intervalos [inicio, fin) en minutos ocupados por las citas de una fecha,
+ * con la duración REAL del servicio según el catálogo: una cita de 90 min a
+ * las 10:00 ocupa 10:00–11:30 — antes solo bloqueaba el slot de las 10:00 y
+ * las 11:00 seguían ofertándose (doble reserva real).
+ */
+async function intervalosOcupados(fecha) {
+  const [citas, items] = await Promise.all([
+    db.citas.listarPorFecha(fecha),
+    db.catalogo.listar(),
+  ]);
+  const duracionPorServicio = new Map(
+    items.map((s) => [normalizarTexto(s.nombre), s.duracion_minutos || SLOT_MINUTOS])
+  );
+  return citas.map((c) => {
+    const inicio = aMinutos(normalizarHora(c.hora));
+    const duracion = duracionPorServicio.get(normalizarTexto(c.servicio)) || SLOT_MINUTOS;
+    return { inicio, fin: inicio + duracion };
+  });
+}
+
+const seSolapa = (intervalos, inicio, fin) =>
+  intervalos.some((i) => inicio < i.fin && fin > i.inicio);
+
+async function consultarDisponibilidad({ fecha, servicio } = {}) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha || '')) {
     return { error: 'Fecha inválida: usar formato YYYY-MM-DD' };
   }
@@ -137,24 +168,31 @@ async function consultarDisponibilidad({ fecha }) {
   const horario = await db.horarios.get(diaSemana);
   if (!horario) return { fecha, disponible: false, mensaje: 'Ese día el negocio está cerrado.' };
 
-  const ocupadas = new Set(
-    (await db.citas.listarPorFecha(fecha)).map((c) => normalizarHora(c.hora))
-  );
+  // Duración a reservar: la del servicio si se conoce; si no, un slot base.
+  let duracion = SLOT_MINUTOS;
+  if (servicio) {
+    const resolucion = await resolverServicio(servicio);
+    if (resolucion.servicio?.duracion_minutos) duracion = resolucion.servicio.duracion_minutos;
+  }
+
+  const ocupados = await intervalosOcupados(fecha);
 
   // Si consultan por HOY, las horas que ya pasaron no se ofrecen
   const horaMinima = fecha === hoy ? horaChile() : null;
 
   const libres = [];
-  let [h, m] = horario.abre.split(':').map(Number);
-  const [hc, mc] = horario.cierra.split(':').map(Number);
-  while (h * 60 + m + SLOT_MINUTOS <= hc * 60 + mc) {
-    const slot = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-    if (!ocupadas.has(slot) && (!horaMinima || slot > horaMinima)) libres.push(slot);
-    m += SLOT_MINUTOS;
-    h += Math.floor(m / 60);
-    m %= 60;
+  const abreMin   = aMinutos(horario.abre);
+  const cierraMin = aMinutos(horario.cierra);
+  for (let t = abreMin; t + duracion <= cierraMin; t += SLOT_MINUTOS) {
+    const slot = `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+    if (!seSolapa(ocupados, t, t + duracion) && (!horaMinima || slot > horaMinima)) libres.push(slot);
   }
-  return { fecha, horario_atencion: `${horario.abre} a ${horario.cierra}`, horas_disponibles: libres };
+  return {
+    fecha,
+    horario_atencion: `${horario.abre} a ${horario.cierra}`,
+    duracion_considerada_minutos: duracion,
+    horas_disponibles: libres,
+  };
 }
 
 // Minúsculas y sin tildes, para comparar nombres de servicio con tolerancia
@@ -199,7 +237,9 @@ async function agendarCita({ nombre, servicio, fecha, hora, personas, notas }, t
   }
   const servicioCatalogo = resolucion.servicio;
 
-  const disponibilidad = await consultarDisponibilidad({ fecha });
+  // Con el nombre canónico: la disponibilidad reserva el bloque completo
+  // según la duración real del servicio, no solo la hora de inicio.
+  const disponibilidad = await consultarDisponibilidad({ fecha, servicio: servicioCatalogo.nombre });
   if (disponibilidad.error) return disponibilidad;
   if (disponibilidad.disponible === false) return disponibilidad;
   const horaNorm = normalizarHora(hora);
