@@ -3,6 +3,7 @@
 
 const { db } = require('../database/supabase');
 const { guardarPerfil } = require('./memory');
+const { avisarDueno } = require('./avisos');
 
 const SLOT_MINUTOS = Number(process.env.SLOT_MINUTOS) || 60;
 
@@ -277,6 +278,8 @@ async function agendarCita({ nombre, servicio, fecha, hora, personas, notas }, t
   // (determinista, no extraído por el modelo). Sirve para reconocer al
   // cliente en su próxima conversación. Nunca bloquea la respuesta.
   guardarPerfil(telefono, { nombre }).catch(() => {});
+  // Sin await: el aviso al dueño jamás retrasa la respuesta al cliente.
+  avisarDueno(`🆕 Cita nueva: ${nombre} — ${servicioCatalogo.nombre} el ${fecha} a las ${horaNorm} (cliente ${telefono})`);
   return { agendada: true, cita: { id: cita.id, nombre, servicio: servicioCatalogo.nombre, fecha, hora: horaNorm, personas: personas ?? 1 } };
 }
 
@@ -287,6 +290,7 @@ async function anotarPendiente({ resumen } = {}, telefono) {
   // Registro visible en los logs del servicio (Railway): suficiente para la
   // demo. Una tabla de pendientes real queda como paso de producción.
   console.log(`[Pendiente] ${telefono}: ${String(resumen).trim()}`);
+  avisarDueno(`📝 Pendiente del cliente ${telefono}: ${String(resumen).trim()}`);
   return { anotado: true, mensaje: 'Pendiente registrado: recepción lo verá y le responderá al cliente por este mismo chat.' };
 }
 
@@ -331,6 +335,7 @@ async function cancelarCita({ cita_id } = {}, telefono) {
   }
 
   await db.citas.cancelar(cita.id);
+  avisarDueno(`❌ Cita cancelada: ${cita.servicio} del ${cita.fecha} a las ${normalizarHora(cita.hora)} (cliente ${telefono})`);
   return { cancelada: true, cita: { servicio: cita.servicio, fecha: cita.fecha, hora: normalizarHora(cita.hora) } };
 }
 

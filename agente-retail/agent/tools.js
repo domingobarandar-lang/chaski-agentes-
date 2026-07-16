@@ -3,6 +3,7 @@
 
 const { db, normalizar } = require('../database/supabase');
 const { guardarPerfil } = require('./memory');
+const { avisarDueno } = require('./avisos');
 
 const TOOL_DEFINITIONS = [
   {
@@ -273,6 +274,13 @@ async function crearPedido({ nombre_cliente, items, direccion, notas, confirmar_
   // cliente en su próxima conversación. Nunca bloquea la respuesta.
   guardarPerfil(telefono, { nombre: nombre_cliente, direccion }).catch(() => {});
 
+  // Sin await: el aviso al dueño jamás retrasa la respuesta al cliente.
+  avisarDueno(
+    `🆕 Pedido #${pedido.id} de ${nombre_cliente} (${telefono}) — total $${total.toLocaleString('es-CL')}: ` +
+    lineas.map((l) => `${l.cantidad}x ${l.producto.nombre}`).join(', ') +
+    (direccion ? ` — despacho a ${direccion}` : ' — retiro en tienda')
+  );
+
   return {
     creado: true,
     pedido: {
@@ -290,6 +298,7 @@ async function anotarPendiente({ resumen } = {}, telefono) {
   // Registro visible en los logs del servicio (Railway): suficiente para la
   // demo. Una tabla de pendientes real queda como paso de producción.
   console.log(`[Pendiente] ${telefono}: ${String(resumen).trim()}`);
+  avisarDueno(`📝 Pendiente del cliente ${telefono}: ${String(resumen).trim()}`);
   return { anotado: true, mensaje: 'Pendiente registrado: la tienda lo verá y le responderá al cliente por este mismo chat.' };
 }
 
@@ -306,6 +315,7 @@ async function cancelarPedido(telefono) {
   for (const item of pedido.items ?? []) {
     if (item.producto_id) await db.productos.reponerStock(item.producto_id, item.cantidad);
   }
+  avisarDueno(`❌ Pedido #${pedido.id} cancelado (cliente ${telefono}) — stock repuesto`);
   return {
     cancelado: true,
     pedido_id: pedido.id,
