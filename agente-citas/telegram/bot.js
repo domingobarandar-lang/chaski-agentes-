@@ -23,10 +23,23 @@ if (!globalThis.WebSocket) {
 
 require('dotenv').config();
 
-const MODO_MOCK =
+const MOCK_EXPLICITO =
   process.env.MOCK === 'true' ||
-  process.argv.includes('--mock') ||
-  !process.env.TELEGRAM_TOKEN_CITAS;
+  process.argv.includes('--mock');
+
+const MODO_MOCK = MOCK_EXPLICITO || !process.env.TELEGRAM_TOKEN_CITAS;
+
+// En producción, un token ausente es un error de configuración, no una demo:
+// caer a mock corre la simulación y termina con exit 0, y Railway
+// (restartPolicy "on_failure") deja el servicio muerto sin ninguna alarma.
+const EN_PRODUCCION = process.env.NODE_ENV === 'production'
+  || !!process.env.RAILWAY_ENVIRONMENT
+  || !!process.env.RAILWAY_PROJECT_ID;
+
+if (EN_PRODUCCION && !MOCK_EXPLICITO && !process.env.TELEGRAM_TOKEN_CITAS) {
+  console.error('[Telegram] FALTA TELEGRAM_TOKEN_CITAS en producción — no se cae a modo mock. Configura la variable en Railway.');
+  process.exit(1);
+}
 
 const MAX_CHARS_TELEGRAM = 4096;
 
