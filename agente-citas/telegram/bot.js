@@ -36,9 +36,16 @@ const EN_PRODUCCION = process.env.NODE_ENV === 'production'
   || !!process.env.RAILWAY_ENVIRONMENT
   || !!process.env.RAILWAY_PROJECT_ID;
 
-if (EN_PRODUCCION && !MOCK_EXPLICITO && !process.env.TELEGRAM_TOKEN_CITAS) {
+const TOKEN_FALTANTE_PROD = EN_PRODUCCION && !MOCK_EXPLICITO && !process.env.TELEGRAM_TOKEN_CITAS;
+
+if (TOKEN_FALTANTE_PROD) {
   console.error('[Telegram] FALTA TELEGRAM_TOKEN_CITAS en producción — no se cae a modo mock. Configura la variable en Railway.');
-  process.exit(1);
+  if (process.env.CHASKI_DEPLOY_UNIFICADO !== 'true') {
+    process.exit(1);
+  }
+  // Deploy unificado (index.js raíz): abortar aquí tumbaría también al otro
+  // bot que SÍ tiene token. Este bot queda apagado con la alerta ya logueada.
+  console.error('[Telegram] Deploy unificado: el bot de CITAS queda APAGADO; el resto del proceso sigue.');
 }
 
 const MAX_CHARS_TELEGRAM = 4096;
@@ -390,7 +397,9 @@ async function correrDemoMock(conversaciones, mockState, processMessage) {
   process.exitCode = fallas ? 1 : 0;
 }
 
-if (MODO_MOCK) {
+if (TOKEN_FALTANTE_PROD) {
+  // Apagado deliberado (deploy unificado sin token): la alerta ya salió arriba.
+} else if (MODO_MOCK) {
   arrancarModoMock().catch((e) => { console.error('Error fatal en modo mock:', e); process.exitCode = 1; });
 } else {
   arrancarBotReal();
