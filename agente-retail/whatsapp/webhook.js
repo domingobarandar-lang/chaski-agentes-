@@ -38,6 +38,26 @@ function verificarFirma(req) {
   }
 }
 
+// Meta reintenta el webhook si no ve el 200 a tiempo: sin dedup, el mismo
+// mensaje se procesaría (y se respondería) dos veces. Ventana corta en
+// memoria: los reintentos de Meta llegan dentro de minutos.
+const DEDUP_TTL_MS  = 10 * 60 * 1000;
+const DEDUP_MAX     = 500;
+const mensajesVistos = new Map(); // messageId → timestamp
+
+function yaProcesado(messageId) {
+  if (!messageId) return false;
+  const ahora = Date.now();
+  if (mensajesVistos.size > DEDUP_MAX) {
+    for (const [id, ts] of mensajesVistos) {
+      if (ahora - ts > DEDUP_TTL_MS) mensajesVistos.delete(id);
+    }
+  }
+  if (mensajesVistos.has(messageId)) return true;
+  mensajesVistos.set(messageId, ahora);
+  return false;
+}
+
 // GET /webhook — verificación inicial del webhook en Meta for Developers
 router.get('/', (req, res) => {
   const modo  = req.query['hub.mode'];
@@ -65,6 +85,11 @@ router.post('/', (req, res) => {
   const { telefono, texto, messageId } = mensaje;
   if (!RE_TELEFONO.test(telefono) || !texto || texto.length > MAX_MSG_LEN) {
     console.warn(`[Security] Mensaje descartado (teléfono o texto inválido): ${telefono}`);
+    return;
+  }
+
+  if (yaProcesado(messageId)) {
+    console.log(`[Webhook] Reintento de Meta descartado (messageId ya procesado): ${messageId}`);
     return;
   }
 
