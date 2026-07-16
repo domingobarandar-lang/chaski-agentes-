@@ -98,9 +98,20 @@ const idConversacion = (chatId) => `tg${chatId}`;
 
 // ─── Modo real: polling contra la API de Telegram ────────────────────────────
 
+// La key exigida depende del proveedor del adapter (agent/llm.js): Anthropic
+// usa ANTHROPIC_API_KEY, el resto LLM_API_KEY (ollama corre local sin key).
+// Antes esto exigía ANTHROPIC_API_KEY a secas y un clon con Gemini crasheaba.
+function hayLLMConfigurado() {
+  const proveedor = (process.env.LLM_PROVIDER || 'anthropic').toLowerCase();
+  if (proveedor === 'anthropic') return !!process.env.ANTHROPIC_API_KEY;
+  if (proveedor === 'ollama') return true;
+  return !!process.env.LLM_API_KEY;
+}
+
 function arrancarBotReal() {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('[Telegram] Falta ANTHROPIC_API_KEY en .env — el agente no puede responder.');
+  if (!hayLLMConfigurado()) {
+    const proveedor = process.env.LLM_PROVIDER || 'anthropic';
+    console.error(`[Telegram] Sin LLM configurado: falta ${proveedor === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'LLM_API_KEY'} en .env (LLM_PROVIDER=${proveedor}) — el agente no puede responder.`);
     console.error('[Telegram] Para probar sin API keys: npm run telegram:mock');
     process.exit(1);
   }

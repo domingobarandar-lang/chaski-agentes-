@@ -24,7 +24,9 @@ function obtenerCliente() {
 
 // Configurable por entorno: si hay que cambiar de modelo, se cambia la
 // variable sin tocar código. Nombres de modelo según la API de Anthropic.
-const MODELO          = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
+// LLM_MODEL manda con cualquier proveedor del adapter; ANTHROPIC_MODEL se
+// mantiene por retrocompatibilidad.
+const MODELO          = process.env.LLM_MODEL || process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
 const MAX_TOKENS      = 600;  // respuestas cortas: es WhatsApp
 const MAX_TOKENS_AMPLIADO = 1024; // reintento único si la respuesta salió truncada
 const MAX_RONDAS_TOOL = 6;    // límite de rondas de tool use (evita bucles)
