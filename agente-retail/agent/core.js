@@ -26,6 +26,7 @@ function obtenerCliente() {
 // variable sin tocar código. Nombres de modelo según la API de Anthropic.
 const MODELO          = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5-20251001';
 const MAX_TOKENS      = 600;  // respuestas cortas: es WhatsApp
+const MAX_TOKENS_AMPLIADO = 1024; // reintento único si la respuesta salió truncada
 const MAX_RONDAS_TOOL = 6;    // límite de rondas de tool use (evita bucles)
 
 const REINTENTOS_API       = 2;
@@ -58,6 +59,23 @@ async function crearMensajeClaude(params) {
       await esperar(espera);
     }
   }
+}
+
+/**
+ * Llama al modelo y, si la respuesta llega truncada (stop_reason
+ * 'max_tokens'), reintenta UNA vez con tope ampliado — antes el texto cortado
+ * a mitad de frase se enviaba tal cual al cliente.
+ */
+async function llamarModelo(paramsBase, mensajes) {
+  let respuesta = await crearMensajeClaude({ ...paramsBase, messages: mensajes });
+  if (respuesta.stop_reason === 'max_tokens') {
+    console.warn(`[Core] Respuesta truncada por max_tokens — reintento con tope ${MAX_TOKENS_AMPLIADO}`);
+    respuesta = await crearMensajeClaude({ ...paramsBase, max_tokens: MAX_TOKENS_AMPLIADO, messages: mensajes });
+    if (respuesta.stop_reason === 'max_tokens') {
+      console.error('[Core] ALERTA: respuesta truncada incluso con tope ampliado — se envía lo que alcanzó');
+    }
+  }
+  return respuesta;
 }
 
 // Cola serial por teléfono: si un cliente manda dos mensajes seguidos, se
@@ -105,7 +123,7 @@ const RECORDATORIO_VERIFICACION =
  * use) y devuelve la respuesta final de la pasada + cuántas herramientas corrió.
  */
 async function correrTurno(paramsBase, mensajes, telefono) {
-  let respuesta = await crearMensajeClaude({ ...paramsBase, messages: mensajes });
+  let respuesta = await llamarModelo(paramsBase, mensajes);
   let rondas = 0;
   let herramientas = 0;
 
@@ -143,10 +161,16 @@ async function correrTurno(paramsBase, mensajes, telefono) {
     // Todos los tool_result van en UN solo mensaje user
     mensajes.push({ role: 'user', content: resultados });
 
-    respuesta = await crearMensajeClaude({ ...paramsBase, messages: mensajes });
+    respuesta = await llamarModelo(paramsBase, mensajes);
     rondas++;
   }
-  return { respuesta, herramientas };
+  // Rondas agotadas con el modelo aún pidiendo herramientas: la acción NO se
+  // completó — el que llama debe responder algo honesto, nunca un "listo".
+  const rondasAgotadas = respuesta.stop_reason === 'tool_use';
+  if (rondasAgotadas) {
+    console.error(`[Core] ALERTA: ${telefono} agotó las ${MAX_RONDAS_TOOL} rondas de herramientas sin respuesta final`);
+  }
+  return { respuesta, herramientas, rondasAgotadas };
 }
 
 const extraerTexto = (respuesta) => respuesta.content
@@ -173,7 +197,7 @@ async function procesarMensajeInterno(telefono, mensaje) {
     tools: TOOL_DEFINITIONS,
   };
 
-  let { respuesta, herramientas } = await correrTurno(paramsBase, mensajes, telefono);
+  let { respuesta, herramientas, rondasAgotadas } = await correrTurno(paramsBase, mensajes, telefono);
 
   // Rechazo de seguridad / filtro de contenido: content puede venir vacío y
   // leerlo directo rompería.
@@ -182,6 +206,11 @@ async function procesarMensajeInterno(telefono, mensaje) {
   }
 
   let texto = extraerTexto(respuesta);
+
+  if (rondasAgotadas) {
+    // Sin fallback neutro aquí: el turno quedó a medias y el cliente debe saberlo.
+    texto = 'Disculpa, no alcancé a completar tu solicitud 😔 ¿Me la repites en un solo mensaje, por favor?';
+  }
 
   if (!herramientas && PATRON_ACCION.test(texto)) {
     console.warn('[Core] Respuesta afirma una acción sin herramientas ejecutadas: pasada de verificación');
