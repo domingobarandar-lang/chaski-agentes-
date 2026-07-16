@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "description": "Punto de entrada unificado (Opción A) para desplegar agente-citas y agente-retail en un solo servicio Railway",
   "main": "index.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "postinstall": "npm install --prefix agente-citas && npm install --prefix agente-retail",
     "start": "node index.js"

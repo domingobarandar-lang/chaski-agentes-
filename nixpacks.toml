@@ -1,0 +1,6 @@
+# Node 22 para el deploy unificado (Opción A: railway.toml raíz corre
+# `node index.js`). Los nixpacks.toml de agente-citas/ y agente-retail/ solo
+# aplican si el servicio Railway usa esa carpeta como Root Directory — este
+# es el que lee el build cuando se despliega el repo completo.
+[phases.setup]
+nixPkgs = ["nodejs_22"]
