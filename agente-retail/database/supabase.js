@@ -1,5 +1,5 @@
 // Capa de acceso a datos del agente de retail.
-// Con SUPABASE_URL + SUPABASE_ANON_KEY usa Supabase; sin ellas cae a una base
+// Con SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY usa Supabase; sin ellas cae a una base
 // EN MEMORIA con productos demo (suficiente para probar con `npm run chat`).
 //
 // Supabase es COMPARTIDO con agente-citas (mismo proyecto/URL/key — ver
@@ -17,7 +17,16 @@ if (!globalThis.WebSocket) {
 
 const { createClient } = require('@supabase/supabase-js');
 
-const usandoMemoria = !process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY;
+// Clave del servidor: service_role. Las tablas tienen RLS activado y SIN
+// políticas, así que la clave anon (que Supabase trata como pública y suele
+// terminar dentro de páginas web) no puede leer ni escribir datos de clientes.
+// service_role salta RLS y vive solo en el .env del servidor — nunca en un
+// frontend ni en git. SUPABASE_ANON_KEY queda como respaldo de despliegues
+// viejos: funciona solo mientras RLS siga apagado, y se avisa al arrancar.
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const usandoAnon = !process.env.SUPABASE_SERVICE_ROLE_KEY && !!process.env.SUPABASE_ANON_KEY;
+
+const usandoMemoria = !process.env.SUPABASE_URL || !SUPABASE_KEY;
 
 // ─── Implementación en memoria (modo demo) ───────────────────────────────────
 
@@ -178,7 +187,11 @@ const dbMemoria = {
 // ─── Implementación Supabase ─────────────────────────────────────────────────
 
 function crearDbSupabase() {
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+  if (usandoAnon) {
+    console.warn('[DB] ⚠️ Conectado con SUPABASE_ANON_KEY: solo funciona con RLS apagado, y con RLS apagado '
+      + 'cualquiera que tenga esa clave lee los datos de clientes. Usa SUPABASE_SERVICE_ROLE_KEY y activa RLS (database/schema.sql).');
+  }
+  const supabase = createClient(process.env.SUPABASE_URL, SUPABASE_KEY, {
     // Redundante con el polyfill global de arriba (que es el fix real en
     // Node < 22); se mantiene como respaldo por si el global se pierde.
     realtime: { transport: ws },
@@ -349,7 +362,7 @@ async function reportarSalud() {
     estados = await db.chequearSalud();
   } catch (error) {
     console.error(`[DB] ⚠️ No se pudo consultar Supabase: ${error.message}`);
-    console.error('[DB] ⚠️ Revisa SUPABASE_URL / SUPABASE_ANON_KEY. El bot seguirá con memoria de respaldo en proceso.');
+    console.error('[DB] ⚠️ Revisa SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY. El bot seguirá con memoria de respaldo en proceso.');
     return { memoria: false, ok: false, error: error.message };
   }
   let ok = true;

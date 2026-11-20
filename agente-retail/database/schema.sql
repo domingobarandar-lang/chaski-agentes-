@@ -1,8 +1,9 @@
 -- Schema del agente de retail — ejecutar en Supabase SQL Editor.
 -- ⚠️ Si el proyecto Supabase es COMPARTIDO con agente-citas, usar mejor
 -- schema-compartido.sql (raíz del repo), que crea las tablas de ambos.
--- Las tablas quedan con RLS deshabilitado (demo), así que la clave anon
--- (SUPABASE_ANON_KEY) funciona sin "permission denied".
+-- Las tablas quedan con RLS ACTIVADO y sin políticas: la clave anon (pública
+-- por diseño) no puede leer ni escribir datos de clientes. El bot usa la
+-- service_role (SUPABASE_SERVICE_ROLE_KEY, solo en el servidor), que salta RLS.
 
 -- Historial de conversación por cliente (una fila por teléfono).
 -- OJO: el código lee `retail_sesiones` (prefijada para no chocar con la tabla
@@ -56,11 +57,14 @@ create table if not exists pedido_items (
 create index if not exists idx_pedidos_telefono on pedidos (telefono_cliente);
 create index if not exists idx_items_pedido     on pedido_items (pedido_id);
 
--- Demo: sin RLS (el acceso es solo desde el backend con la clave anon).
-alter table retail_sesiones disable row level security;
-alter table productos       disable row level security;
-alter table pedidos         disable row level security;
-alter table pedido_items    disable row level security;
+-- RLS activado y SIN políticas: la clave anon no entra; solo la service_role
+-- del backend, que salta RLS. Sobre una base en uso: primero
+-- SUPABASE_SERVICE_ROLE_KEY en el servidor y redeploy; recién después esto
+-- (con la anon, el bot quedaría sin base).
+alter table retail_sesiones enable row level security;
+alter table productos       enable row level security;
+alter table pedidos         enable row level security;
+alter table pedido_items    enable row level security;
 
 -- Si la base venía del schema ANTIGUO que creaba la tabla `sesiones` sin
 -- prefijo (el código no la lee), migrar el historial y eliminarla:

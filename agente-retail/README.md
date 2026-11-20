@@ -64,7 +64,7 @@ Ejemplos para probar:
 
 1. Crear un proyecto en Supabase.
 2. Ejecutar `database/schema.sql` en el **SQL Editor** (crea tablas + productos demo). Si el proyecto se comparte con `agente-citas`, usar mejor `schema-compartido.sql` (raíz del repo).
-3. En `.env`: `SUPABASE_URL` y `SUPABASE_ANON_KEY` (⚠️ ese es el nombre que lee el código). Las tablas quedan sin RLS, así que la clave `anon` funciona.
+3. En `.env`: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Project Settings → API). Las tablas quedan con RLS activado y sin políticas: la clave `anon`, que es pública, no puede leer ni escribir datos de clientes. La `service_role` salta RLS, así que vive **solo** en el servidor.
 4. Verificar con `npm run diagnostico`: dice tabla por tabla qué existe, si el catálogo está actualizado y qué SQL correr si falta algo. El bot también lo reporta en los logs al arrancar y **auto-siembra** los productos demo si la tabla está vacía.
 5. Cargar los productos reales del comercio en la tabla `productos` (y ajustar el nombre/datos del negocio en `agent/prompts.js`).
 
