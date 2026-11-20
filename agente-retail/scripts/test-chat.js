@@ -18,8 +18,8 @@ const path = require('path');
 
 const MODO = (process.env.MOCK === 'true' || !process.env.ANTHROPIC_API_KEY) ? 'mock' : 'api';
 
-if (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY) {
-  console.error('Los tests usan la base EN MEMORIA: quita SUPABASE_URL/SUPABASE_ANON_KEY del entorno antes de correrlos.');
+if (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY)) {
+  console.error('Los tests usan la base EN MEMORIA: quita SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY del entorno antes de correrlos.');
   process.exit(1);
 }
 

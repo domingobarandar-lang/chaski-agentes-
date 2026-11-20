@@ -1,5 +1,5 @@
 // Diagnóstico del Supabase del agente de retail.
-// Uso: node scripts/diagnostico-db.js   (lee SUPABASE_URL / SUPABASE_ANON_KEY del .env)
+// Uso: node scripts/diagnostico-db.js   (lee SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY del .env)
 //
 // Dictamina exactamente qué le falta a la base real (tablas, columna perfil,
 // catálogo desactualizado) y qué SQL correr en el SQL Editor de Supabase.
@@ -16,7 +16,7 @@ async function main() {
   console.log('═'.repeat(64));
 
   if (usandoMemoria) {
-    console.log('SUPABASE_URL / SUPABASE_ANON_KEY no están configuradas.');
+    console.log('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY no están configuradas.');
     console.log('El agente usa la base EN MEMORIA con los productos demo — nada que diagnosticar.');
     console.log('Para persistencia real: crear proyecto en Supabase, correr schema-compartido.sql');
     console.log('(raíz del repo) en el SQL Editor, y pegar las credenciales en .env / Railway.');
@@ -30,7 +30,7 @@ async function main() {
   const faltaPerfil = (salud.estados ?? []).some((e) => e.tabla === 'retail_sesiones.perfil' && !e.ok);
 
   if (salud.error || tablasMalas.length) {
-    acciones.push('Correr schema-compartido.sql COMPLETO (raíz del repo) en el SQL Editor de Supabase — crea las tablas de los dos agentes con RLS deshabilitado.');
+    acciones.push('Correr schema-compartido.sql COMPLETO (raíz del repo) en el SQL Editor de Supabase — crea las tablas de los dos agentes con RLS activado (el bot entra con SUPABASE_SERVICE_ROLE_KEY).');
   } else {
     if (faltaPerfil) {
       acciones.push('Falta la columna del perfil del cliente. Correr:\n     alter table retail_sesiones add column if not exists perfil jsonb;');
@@ -53,7 +53,7 @@ async function main() {
       console.log(`\n[Catálogo] ⚠️ No se pudo leer: ${error.message}`);
     }
 
-    // ¿La base ACEPTA escrituras con la anon key? Con RLS activado las
+    // ¿La base ACEPTA escrituras con la clave del servidor? Con RLS activado las
     // lecturas devuelven vacío (sin error) y las escrituras fallan: el bot
     // "funcionaría" pero ningún pedido se guardaría. Sonda inofensiva:
     // upsert + delete de una fila de sesión de diagnóstico.
@@ -63,10 +63,10 @@ async function main() {
         .upsert({ telefono: '__diagnostico__', messages: [] }, { onConflict: 'telefono' });
       if (error) throw new Error(error.message);
       await db.supabase.from('retail_sesiones').delete().eq('telefono', '__diagnostico__');
-      console.log('\n[Escritura] ✓ La base acepta escrituras con la clave anon.');
+      console.log('\n[Escritura] ✓ La base acepta escrituras con la clave del servidor.');
     } catch (error) {
-      console.log(`\n[Escritura] ❌ La base NO acepta escrituras con la clave anon: ${error.message}`);
-      acciones.push('Desbloquear escrituras (típicamente RLS quedó ACTIVADO — Supabase lo sugiere pero esta demo usa la clave anon). En el SQL Editor correr:\n     alter table retail_sesiones disable row level security;\n     alter table productos       disable row level security;\n     alter table pedidos         disable row level security;\n     alter table pedido_items    disable row level security;\n   OJO: con RLS activado el conteo de filas de arriba puede salir 0 aunque haya datos.');
+      console.log(`\n[Escritura] ❌ La base NO acepta escrituras con la clave del servidor: ${error.message}`);
+      acciones.push('Usar SUPABASE_SERVICE_ROLE_KEY (Supabase → Project Settings → API) en el .env del servidor. Con RLS activado —como debe quedar— la clave anon no puede escribir. NO desactives RLS: sin RLS, cualquiera con la clave anon (que es pública) lee los datos de clientes.');
     }
   }
 

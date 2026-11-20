@@ -1,6 +1,6 @@
 -- Schema Supabase COMPARTIDO entre agente-citas y agente-retail (demo).
 -- Ejecutar una sola vez en el SQL Editor del proyecto Supabase compartido
--- (mismo SUPABASE_URL / SUPABASE_ANON_KEY en el .env de ambos agentes).
+-- (mismo SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY en el .env de ambos agentes).
 --
 -- Prefijos: solo se prefija la tabla que se llama IGUAL en los dos schemas
 -- originales (`sesiones`, historial de conversación) -> `citas_sesiones` /
@@ -14,8 +14,10 @@
 -- clave `telefono` en una tabla `sesiones` compartida, y un agente pisaría el
 -- historial de conversación del otro.
 --
--- NOTA: el bot usa la clave anon. Todas las tablas de abajo tienen RLS
--- deshabilitado (demo), así que la anon key funciona igual que la service_role.
+-- SEGURIDAD: todas las tablas de abajo quedan con RLS ACTIVADO y sin
+-- políticas. La clave anon (pública por diseño) no puede leer ni escribir
+-- datos de clientes; el bot usa la service_role, que salta RLS y vive solo
+-- en el .env del servidor.
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- agente-citas
@@ -70,11 +72,14 @@ create table if not exists citas (
 create index if not exists idx_citas_fecha    on citas (fecha) where estado = 'confirmada';
 create index if not exists idx_citas_telefono on citas (telefono_cliente);
 
--- Demo: sin RLS (el acceso es solo desde el backend con la clave anon).
-alter table citas_sesiones disable row level security;
-alter table catalogo       disable row level security;
-alter table horarios       disable row level security;
-alter table citas          disable row level security;
+-- RLS activado y SIN políticas: la clave anon no entra; solo la service_role
+-- del backend, que salta RLS. Sobre una base en uso: primero
+-- SUPABASE_SERVICE_ROLE_KEY en el servidor y redeploy; recién después esto
+-- (con la anon, el bot quedaría sin base).
+alter table citas_sesiones enable row level security;
+alter table catalogo       enable row level security;
+alter table horarios       enable row level security;
+alter table citas          enable row level security;
 
 -- ─── Datos de ejemplo (empresa FICTICIA: Clínica Dental Sonrisa del Valle) ───
 
@@ -155,11 +160,14 @@ create table if not exists pedido_items (
 create index if not exists idx_pedidos_telefono on pedidos (telefono_cliente);
 create index if not exists idx_items_pedido     on pedido_items (pedido_id);
 
--- Demo: sin RLS (el acceso es solo desde el backend con la clave anon).
-alter table retail_sesiones disable row level security;
-alter table productos       disable row level security;
-alter table pedidos         disable row level security;
-alter table pedido_items    disable row level security;
+-- RLS activado y SIN políticas: la clave anon no entra; solo la service_role
+-- del backend, que salta RLS. Sobre una base en uso: primero
+-- SUPABASE_SERVICE_ROLE_KEY en el servidor y redeploy; recién después esto
+-- (con la anon, el bot quedaría sin base).
+alter table retail_sesiones enable row level security;
+alter table productos       enable row level security;
+alter table pedidos         enable row level security;
+alter table pedido_items    enable row level security;
 
 -- ─── Datos de ejemplo (empresa FICTICIA: Frutos Secos La Cosecha) ────────────
 

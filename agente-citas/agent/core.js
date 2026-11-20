@@ -90,7 +90,31 @@ const colasPorTelefono = new Map();
  * @param {string} mensaje
  * @returns {Promise<string>} Respuesta para enviar al cliente
  */
+// Tope diario por conversación: cada mensaje gasta una llamada pagada al
+// modelo, y el bot es público (cualquiera le puede escribir). Sin tope, una
+// sola persona —o un script— podría vaciar el crédito de la API. Se cuenta en
+// memoria y se reinicia cada día (hora de Chile); LIMITE_MENSAJES_DIA lo ajusta.
+const LIMITE_MENSAJES_DIA = Number(process.env.LIMITE_MENSAJES_DIA) || 150;
+const MENSAJE_LIMITE =
+  'Por hoy alcanzamos el máximo de mensajes de esta conversación. Escríbenos de nuevo mañana, por favor. 🙏';
+const conteoDiario = { dia: '', porTelefono: new Map() };
+
+function superaLimiteDiario(telefono) {
+  const dia = new Date().toLocaleDateString('es-CL', { timeZone: 'America/Santiago' });
+  if (conteoDiario.dia !== dia) {
+    conteoDiario.dia = dia;
+    conteoDiario.porTelefono.clear();
+  }
+  const n = (conteoDiario.porTelefono.get(telefono) || 0) + 1;
+  conteoDiario.porTelefono.set(telefono, n);
+  if (n === LIMITE_MENSAJES_DIA + 1) {
+    console.warn(`[Core] ${telefono} alcanzó el tope diario de ${LIMITE_MENSAJES_DIA} mensajes`);
+  }
+  return n > LIMITE_MENSAJES_DIA;
+}
+
 function processMessage(telefono, mensaje) {
+  if (superaLimiteDiario(telefono)) return Promise.resolve(MENSAJE_LIMITE);
   const anterior = colasPorTelefono.get(telefono) ?? Promise.resolve();
   const actual = anterior
     .catch(() => {})
